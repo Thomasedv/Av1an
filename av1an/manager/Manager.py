@@ -66,7 +66,7 @@ class Main:
 
                 print(f'Finished: {round(time.time() - tm, 1)}s\n')
             except KeyboardInterrupt:
-                print('Encoding stopped')
+                print(' \nEncoding stopped')
                 sys.exit()
 
 
