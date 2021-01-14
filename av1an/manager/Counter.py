@@ -1,4 +1,5 @@
 from multiprocessing.managers import BaseManager
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -18,6 +19,7 @@ class Counter:
     """
     Frame Counter
     """
+
     def __init__(self, total, initial, use_tqdm=True):
         self.first_update = True
         self.initial = initial
@@ -42,4 +44,3 @@ class Counter:
 
     def get_frames(self):
         return self.current
-

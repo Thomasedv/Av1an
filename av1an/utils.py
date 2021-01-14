@@ -1,15 +1,13 @@
 #!/bin/env python
 
+import hashlib
 import re
 import sys
-from typing import List
 from pathlib import Path
+from typing import List
+
 import cv2
-import numpy as np
-import hashlib
 
-
-from av1an.commandtypes import Command
 from av1an.ffmpeg import frame_probe_ffmpeg
 from av1an.vapoursynth import frame_probe_vspipe, is_vapoursynth
 
