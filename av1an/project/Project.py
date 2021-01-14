@@ -1,14 +1,17 @@
 import json
-import sys
 import os
 import shutil
-from psutil import virtual_memory
+import sys
 from distutils.spawn import find_executable
 from pathlib import Path
+
+from psutil import virtual_memory
+
 from av1an.commandtypes import Command
-from av1an.utils import frame_probe_fast,  hash_path, terminate
 from av1an.concat import vvc_concat, concatenate_ffmpeg, concatenate_mkvmerge
 from av1an.logger import log
+from av1an.utils import frame_probe_fast, hash_path, terminate
+
 
 class Project(object):
 

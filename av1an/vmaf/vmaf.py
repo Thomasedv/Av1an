@@ -5,19 +5,19 @@ import shlex
 import subprocess
 import sys
 from collections import deque
-
+from math import log as ln
+from math import log10, ceil, floor
 from pathlib import Path
 from subprocess import PIPE, STDOUT
 
 import numpy as np
-from math import log10, ceil, floor
-from math import log as ln
 
 from av1an.logger import log
 
 try:
     import matplotlib
     from matplotlib import pyplot as plt
+
     matplotlib.use('Agg')
 except ImportError:
     matplotlib = None
@@ -84,7 +84,7 @@ class VMAF:
         """
 
         cmd = ['ffmpeg', '-loglevel', 'error', '-y', '-hide_banner', '-r', '60', '-i',
-              '-', '-vf', 'vmafmotion', '-f', 'null', '-']
+               '-', '-vf', 'vmafmotion', '-f', 'null', '-']
 
         print(cmd)
 
@@ -117,8 +117,8 @@ class VMAF:
         cmd = (*cmd_in, *filter_complex, distorted + ref + vmaf_filter, *cmd_out)
 
         ffmpeg_gen_pipe = subprocess.Popen(chunk.ffmpeg_gen_cmd,
-        stdout=PIPE,
-        stderr=STDOUT)
+                                           stdout=PIPE,
+                                           stderr=STDOUT)
 
         pipe = subprocess.Popen(cmd,
                                 stdin=ffmpeg_gen_pipe.stdout,
@@ -140,20 +140,20 @@ class VMAF:
         scores = sorted(scores)
         key = lambda x: x
 
-        k = (len(scores)-1) * percent
+        k = (len(scores) - 1) * percent
         f = floor(k)
         c = ceil(k)
         if f == c:
             return key(scores[int(k)])
 
-        d0 = (scores[int(f)]) * (c-k)
-        d1 = (scores[int(c)]) * (k-f)
-        return d0+d1
+        d0 = (scores[int(f)]) * (c - k)
+        d1 = (scores[int(c)]) * (k - f)
+        return d0 + d1
 
     @staticmethod
     def transform_vmaf(vmaf):
-        if vmaf<99.99:
-            return -ln(1-vmaf/100)
+        if vmaf < 99.99:
+            return -ln(1 - vmaf / 100)
         else:
             # return -ln(1-99.99/100)
             return 9.210340371976184
@@ -198,7 +198,7 @@ class VMAF:
         Running vmaf on 2 files and returning file
         """
 
-        if not all((isinstance(source, Path), isinstance(encoded,Path))):
+        if not all((isinstance(source, Path), isinstance(encoded, Path))):
             source = Path(source)
             encoded = Path(encoded)
 
@@ -296,7 +296,7 @@ class VMAF:
 
         plt.plot(range(plot_size), vmafs,
                  label=f'Frames: {plot_size}\nMean:{mean}\n'
-                       f'1%: {perc_1} \n25%: {perc_25} \n75%: {perc_75}', linewidth=0.7)
+                 f'1%: {perc_1} \n25%: {perc_25} \n75%: {perc_75}', linewidth=0.7)
         plt.ylabel('VMAF')
         plt.legend(loc="lower right", markerscale=0, handlelength=0, fancybox=True, )
         plt.ylim(int(perc_1), 100)

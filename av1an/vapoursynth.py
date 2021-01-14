@@ -1,7 +1,7 @@
 import re
 import subprocess
-from subprocess import PIPE 
 from pathlib import Path
+from subprocess import PIPE
 
 VS_EXTENSIONS = ['.vpy', '.py']
 

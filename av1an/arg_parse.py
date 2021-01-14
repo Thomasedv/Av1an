@@ -2,13 +2,16 @@
 import argparse
 import sys
 from pathlib import Path
+
 from .project import Project
+
 
 class Args:
     """
     Class responsible for arg parsing
     Creation of original project file
     """
+
     def __init__(self):
         self.parser = self.arg_parsing()
         self.defaults = self.get_defaults()
@@ -76,11 +79,13 @@ class Args:
         io_group.add_argument('--output_file', '-o', type=Path, default=None, help='Specify output file')
         io_group.add_argument('--mkvmerge', help='Use mkvmerge instead of ffmpeg to concatenate', action='store_true')
 
-        io_group.add_argument('--quiet', '-q', help='Disable printing tqdm and scenedetect data to terminal', action='store_true')
+        io_group.add_argument('--quiet', '-q', help='Disable printing tqdm and scenedetect data to terminal',
+                              action='store_true')
         io_group.add_argument('--logging', '-log', type=str, default=None, help='Enable logging')
         io_group.add_argument('--resume', '-r', help='Resuming previous session', action='store_true')
         io_group.add_argument('--keep', help='Keep temporally folder after encode', action='store_true')
-        io_group.add_argument('--config', '-c', type=str, default=None, help="Path to config file, create if doesn't exists")
+        io_group.add_argument('--config', '-c', type=str, default=None,
+                              help="Path to config file, create if doesn't exists")
         io_group.add_argument('--webm', default=False, action='store_true', help="Output to webm")
 
         # Splitting
@@ -98,12 +103,14 @@ class Args:
         split_group.add_argument('--min_scene_len', type=int, default=60, help='Minimum number of frames in a split')
 
         # AOM Keyframe split
-        split_group.add_argument('--reuse_first_pass', help='Reuse the first pass from aom_keyframes split on the chunks',
+        split_group.add_argument('--reuse_first_pass',
+                                 help='Reuse the first pass from aom_keyframes split on the chunks',
                                  action='store_true')
 
         # Encoding
         encode_group = parser.add_argument_group('Encoding')
-        encode_group.add_argument('--passes', '-p', type=int, default=None, help='Specify encoding passes', choices=[1, 2])
+        encode_group.add_argument('--passes', '-p', type=int, default=None, help='Specify encoding passes',
+                                  choices=[1, 2])
         encode_group.add_argument('--video_params', '-v', type=str, default=None, help='encoding settings')
         encode_group.add_argument('--encoder', '-enc', type=str, default='aom', help='Choosing encoder',
                                   choices=['aom', 'svt_av1', 'svt_vp9', 'rav1e', 'vpx', 'x265', 'x264', 'vvc'])
