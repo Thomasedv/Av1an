@@ -1,10 +1,9 @@
-import sys
 from collections import deque
 
 from av1an.chunk import Chunk
 from av1an.encoder import ENCODERS
-from av1an.project import Project
 from av1an.logger import log
+from av1an.project import Project
 
 
 def process_pipe(pipe, chunk: Chunk):
@@ -27,7 +26,7 @@ def process_pipe(pipe, chunk: Chunk):
         if pipe.returncode == 3221225786:
             raise KeyboardInterrupt('User stopped')
         msg = f':: Encoder encountered an error: {pipe.returncode}\n:: Chunk: {chunk.index}' + \
-             '\n'.join(encoder_history)
+              '\n'.join(encoder_history)
         log(msg + '\n\n')
         print(msg)
         raise Exception("Error in processing pipe")
@@ -64,7 +63,7 @@ def process_encoding_pipe(pipe, encoder, counter, chunk: Chunk):
         if pipe.returncode == 3221225786:
             raise KeyboardInterrupt('User stopped')
         msg = f':: Encoder encountered an error: {pipe.returncode}\n:: Chunk: {chunk.index}\n' + \
-             '\n'.join(encoder_history)
+              '\n'.join(encoder_history)
         log(msg + '\n\n')
         print(msg)
         raise Exception("Error in processing encoding pipe")
