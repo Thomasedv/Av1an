@@ -28,17 +28,18 @@ class Queue:
         self.status = 'Ok'
 
     def encoding_loop(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.project.workers) as executor:
-            future_cmd = {executor.submit(self.encode_chunk, cmd): cmd for cmd in self.chunk_queue}
-            for future in concurrent.futures.as_completed(future_cmd):
-                try:
-                    future.result()
-                except Exception as exc:
-                    _, _, exc_tb = sys.exc_info()
-                    print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
-                    terminate()
-        self.project.counter.close()
-
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.project.workers) as executor:
+                future_cmd = {executor.submit(self.encode_chunk, cmd): cmd for cmd in self.chunk_queue}
+                for future in concurrent.futures.as_completed(future_cmd):
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        _, _, exc_tb = sys.exc_info()
+                        print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
+                        terminate()
+        finally:
+            self.project.counter.close()
 
     def encode_chunk(self, chunk: Chunk):
         """
@@ -53,6 +54,9 @@ class Queue:
         while restart_count < 3:
             try:
                 st_time = time.time()
+
+                if self.status == 'FATAL' or chunk.cancel:
+                    return 1
 
                 chunk_frames = chunk.frames
 
@@ -86,6 +90,11 @@ class Queue:
                 enc_time = round(time.time() - st_time, 2)
                 log(f'Done: {chunk.index} Fr: {encoded_frames}/{chunk_frames}\n'
                     f'Fps: {round(encoded_frames / enc_time, 4)} Time: {enc_time} sec.\n\n')
+                return
+
+            except KeyboardInterrupt:
+                chunk.cancel = True
+                self.status = 'FATAL'
                 return
 
             except Exception as e:
