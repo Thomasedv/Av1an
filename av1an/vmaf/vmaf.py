@@ -104,8 +104,6 @@ class VMAF:
         filter_complex = ('-filter_complex',)
 
         # Change framerate of comparison to framerate of probe
-        # select_frames =
-
         n_subsamples = f':n_subsample={vmaf_rate}' if vmaf_rate else ''
 
         distorted = f'[0:v]scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[distorted];'
