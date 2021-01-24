@@ -64,9 +64,11 @@ def frame_probe_fast(source: Path, is_vs: bool = False):
     if not is_vs:
         try:
             import vapoursynth
+            from vapoursynth import core
             plugins = vapoursynth.get_core().get_plugins()
             if 'systems.innocent.lsmas' in plugins:
                 total = core.lsmas.LWLibavSource(source.as_posix(), cache=False).num_frames
+                return total
         except:
             video = cv2.VideoCapture(source.as_posix())
             total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
