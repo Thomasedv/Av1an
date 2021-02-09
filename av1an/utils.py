@@ -1,12 +1,12 @@
 #!/bin/env python
 
+import hashlib
 import re
 import sys
-from typing import List
 from pathlib import Path
+from typing import List
+
 import cv2
-import numpy as np
-import hashlib
 
 from av1an.ffmpeg import frame_probe_ffmpeg
 from av1an.vapoursynth import frame_probe_vspipe, is_vapoursynth
@@ -21,7 +21,7 @@ def hash_path(s: str) -> int:
     Return hash of full path to file
     :param s: string
     """
-    assert isinstance(s, str)
+    assert type(s) == str
 
     return str(hashlib.sha3_512(s.encode()).hexdigest())[-8:]
 

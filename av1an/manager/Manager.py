@@ -2,7 +2,6 @@ import json
 import shutil
 import sys
 import time
-from multiprocessing.managers import BaseManager
 from pathlib import Path
 from typing import List
 
@@ -12,13 +11,9 @@ from av1an.ffmpeg import extract_audio
 from av1an.fp_reuse import segment_first_pass
 from av1an.logger import log, set_log
 from av1an.project.Project import Project
-from av1an.resume import write_progress_file
 from av1an.split import split_routine
 from av1an.startup.file_validation import process_inputs
-
-from av1an.utils import frame_probe, terminate
 from av1an.vmaf import VMAF
-
 from .Counter import BaseManager, Counter, Manager
 from .Queue import Queue
 
@@ -43,7 +38,6 @@ class Main:
             queue.append(project)
         return queue
 
-
     def run(self):
         """
         Run encoding in queue or single file
@@ -53,7 +47,7 @@ class Main:
                 print(f":: Skipping file {proj.input.name}\n:: Outputfile {proj.output_file.name} exists")
 
                 # Don't print new line on last project to console
-                if i+1 < len(self.projects):
+                if i + 1 < len(self.projects):
                     print()
 
                 continue
@@ -66,7 +60,7 @@ class Main:
 
                 print(f'Finished: {round(time.time() - tm, 1)}s\n')
             except KeyboardInterrupt:
-                print('Encoding stopped')
+                print(' \nEncoding stopped')
                 sys.exit()
 
 
@@ -117,7 +111,8 @@ class EncodingManager:
         project.concat_routine()
 
         if project.vmaf or project.vmaf_plots:
-            self.vmaf = VMAF(n_threads=project.n_threads, model=project.vmaf_path, res=project.vmaf_res, vmaf_filter=project.vmaf_filter)
+            self.vmaf = VMAF(n_threads=project.n_threads, model=project.vmaf_path, res=project.vmaf_res,
+                             vmaf_filter=project.vmaf_filter)
             self.vmaf.plot_vmaf(project.input, project.output_file, project)
 
         # Delete temp folders
@@ -146,8 +141,7 @@ class EncodingManager:
         clips = len(chunk_queue)
         project.workers = min(project.workers, clips)
         print(f'\rQueue: {clips} Workers: {project.workers} Passes: {project.passes}\n'
-                f'Params: {" ".join(project.video_params)}')
+              f'Params: {" ".join(project.video_params)}')
         BaseManager.register('Counter', Counter)
         counter = Manager().Counter(project.get_frames(), self.initial_frames, not project.quiet)
         project.counter = counter
-

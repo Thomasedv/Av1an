@@ -1,15 +1,19 @@
-import sys
 from collections import deque
 
 from av1an.chunk import Chunk
 from av1an.encoder import ENCODERS
-from av1an.project import Project
 from av1an.logger import log
+from av1an.project import Project
 
 
 def process_pipe(pipe, chunk: Chunk):
     encoder_history = deque(maxlen=20)
+
     while True:
+        if chunk.cancel:
+            pipe.kill()
+            return
+
         line = pipe.stdout.readline().strip()
         if len(line) == 0 and pipe.poll() is not None:
             break
@@ -19,8 +23,10 @@ def process_pipe(pipe, chunk: Chunk):
             encoder_history.append(line)
 
     if pipe.returncode != 0 and pipe.returncode != -2:
+        if pipe.returncode == 3221225786:
+            raise KeyboardInterrupt('User stopped')
         msg = f':: Encoder encountered an error: {pipe.returncode}\n:: Chunk: {chunk.index}' + \
-             '\n'.join(encoder_history)
+              '\n'.join(encoder_history)
         log(msg + '\n\n')
         print(msg)
         raise Exception("Error in processing pipe")
@@ -31,8 +37,11 @@ def process_encoding_pipe(pipe, encoder, counter, chunk: Chunk):
     frame = 0
     enc = ENCODERS[encoder]
     while True:
-        line = pipe.stdout.readline().strip()
+        if chunk.cancel:
+            pipe.kill()
+            return
 
+        line = pipe.stdout.readline().strip()
         if len(line) == 0 and pipe.poll() is not None:
             break
 
@@ -51,8 +60,10 @@ def process_encoding_pipe(pipe, encoder, counter, chunk: Chunk):
             encoder_history.append(line)
 
     if pipe.returncode != 0 and pipe.returncode != -2:  # -2 is Ctrl+C for aom
+        if pipe.returncode == 3221225786:
+            raise KeyboardInterrupt('User stopped')
         msg = f':: Encoder encountered an error: {pipe.returncode}\n:: Chunk: {chunk.index}\n' + \
-             '\n'.join(encoder_history)
+              '\n'.join(encoder_history)
         log(msg + '\n\n')
         print(msg)
         raise Exception("Error in processing encoding pipe")

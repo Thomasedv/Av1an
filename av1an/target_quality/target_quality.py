@@ -1,15 +1,14 @@
+import pprint
+import re
 import subprocess
-
 from math import isnan
 
 import numpy as np
-import re
-import pprint
 from scipy import interpolate
 
-from av1an.logger import log
-from av1an.commandtypes import CommandPair, Command
 from av1an.chunk import Chunk
+from av1an.commandtypes import CommandPair, Command
+from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
 from av1an.project import Project
 from av1an.vmaf import VMAF
@@ -20,6 +19,7 @@ try:
 except ImportError:
     matplotlib = None
     plt = None
+
 
 # TODO: rework to class, account for dark scenes/banding
 
