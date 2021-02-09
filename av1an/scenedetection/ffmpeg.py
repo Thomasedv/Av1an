@@ -7,7 +7,7 @@ from av1an.logger import log
 from av1an.vapoursynth import compose_vapoursynth_pipe
 
 if sys.platform == "linux":
-        from os import mkfifo
+    from os import mkfifo
 
 
 def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
@@ -19,10 +19,9 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
     Threshold value increased by x100 for matching with pyscene range
     """
 
-
     log(f'Starting FFMPEG detection:\nThreshold: {threshold}, \nIs Vapoursynth input: {is_vs}\n')
     scenes = []
-    frame:int = 0
+    frame: int = 0
 
     if is_vs:
         if sys.platform == "linux":
@@ -34,11 +33,13 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
         vspipe_cmd = compose_vapoursynth_pipe(video, vspipe_fifo)
         vspipe_process = Popen(vspipe_cmd)
 
-    cmd = ['ffmpeg', '-hwaccel', 'auto','-hide_banner', '-i',  str(vspipe_fifo if is_vs else video.as_posix()), '-an', '-sn', '-vf', 'scale=\'min(960,iw):-1:flags=neighbor\',select=\'gte(scene,0)\',metadata=print', '-f', 'null', '-']
+    cmd = ['ffmpeg', '-hwaccel', 'auto', '-hide_banner', '-i', str(vspipe_fifo if is_vs else video.as_posix()), '-an',
+           '-sn', '-vf', 'scale=\'min(960,iw):-1:flags=neighbor\',select=\'gte(scene,0)\',metadata=print', '-f', 'null',
+           '-']
     pipe = Popen(cmd,
-           stdout=subprocess.PIPE,
-           stderr=subprocess.STDOUT,
-           universal_newlines=True)
+                 stdout=subprocess.PIPE,
+                 stderr=subprocess.STDOUT,
+                 universal_newlines=True)
 
     while True:
         line = pipe.stdout.readline().strip()
@@ -63,7 +64,6 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
     if pipe.returncode != 0 and pipe.returncode != -2:
         print(f"\n:: Error in ffmpeg scenedetection {pipe.returncode}")
         print('\n'.join(scenes))
-
 
     if is_vs:
         vspipe_process.wait()

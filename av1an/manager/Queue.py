@@ -1,18 +1,16 @@
-import time
-import sys
 import concurrent
 import concurrent.futures
-from collections import deque
-from av1an.project.Project import Project
-from typing import List
+import sys
+import time
+from pathlib import Path
+
+from av1an.chunk import Chunk
+from av1an.encoder import ENCODERS
+from av1an.logger import log
+from av1an.resume import write_progress_file
 from av1an.target_quality import (per_frame_target_quality_routine,
                                   per_shot_target_quality_routine)
-from av1an.encoder import ENCODERS
 from av1an.utils import frame_probe, terminate
-from av1an.resume import write_progress_file
-from av1an.chunk import Chunk
-from av1an.logger import log, set_log
-from pathlib import Path
 from .Pipes import tqdm_bar
 
 
@@ -20,6 +18,7 @@ class Queue:
     """
     Queue manager with ability to add/remove/restart jobs
     """
+
     def __init__(self, project, chunk_queue):
         self.chunk_queue = chunk_queue
         self.queue = []
@@ -28,17 +27,18 @@ class Queue:
         self.status = 'Ok'
 
     def encoding_loop(self):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.project.workers) as executor:
-            future_cmd = {executor.submit(self.encode_chunk, cmd): cmd for cmd in self.chunk_queue}
-            for future in concurrent.futures.as_completed(future_cmd):
-                try:
-                    future.result()
-                except Exception as exc:
-                    _, _, exc_tb = sys.exc_info()
-                    print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
-                    terminate()
-        self.project.counter.close()
-
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.project.workers) as executor:
+                future_cmd = {executor.submit(self.encode_chunk, cmd): cmd for cmd in self.chunk_queue}
+                for future in concurrent.futures.as_completed(future_cmd):
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        _, _, exc_tb = sys.exc_info()
+                        print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
+                        terminate()
+        finally:
+            self.project.counter.close()
 
     def encode_chunk(self, chunk: Chunk):
         """
@@ -53,6 +53,9 @@ class Queue:
         while restart_count < 3:
             try:
                 st_time = time.time()
+
+                if self.status == 'FATAL' or chunk.cancel:
+                    return 1
 
                 chunk_frames = chunk.frames
 
@@ -72,7 +75,8 @@ class Queue:
 
                 # Run all passes for this chunk
                 for current_pass in range(start, self.project.passes + 1):
-                    tqdm_bar(self.project, chunk, self.project.encoder, self.project.counter, chunk_frames, self.project.passes, current_pass)
+                    tqdm_bar(self.project, chunk, self.project.encoder, self.project.counter, chunk_frames,
+                             self.project.passes, current_pass)
 
                 ENCODERS[self.project.encoder].on_after_chunk(self.project, chunk)
 
@@ -86,6 +90,11 @@ class Queue:
                 enc_time = round(time.time() - st_time, 2)
                 log(f'Done: {chunk.index} Fr: {encoded_frames}/{chunk_frames}\n'
                     f'Fps: {round(encoded_frames / enc_time, 4)} Time: {enc_time} sec.\n\n')
+                return
+
+            except KeyboardInterrupt:
+                chunk.cancel = True
+                self.status = 'FATAL'
                 return
 
             except Exception as e:

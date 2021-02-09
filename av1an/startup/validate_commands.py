@@ -1,10 +1,11 @@
 import re
 import subprocess
 import sys
-from subprocess import PIPE
-from av1an.encoder import ENCODERS
-from typing import List, Union
 from difflib import SequenceMatcher
+from subprocess import PIPE
+from typing import List, Union
+
+from av1an.encoder import ENCODERS
 
 
 def run_command(command: List) -> str:

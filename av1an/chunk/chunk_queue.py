@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from typing import List
+from subprocess import Popen, DEVNULL
+from shlex import split
 
 from av1an.project import Project
 from av1an.chunk import Chunk
@@ -10,7 +12,7 @@ from av1an.logger import log
 from av1an.resume import read_done_data
 from av1an.split import segment
 from av1an.utils import terminate
-
+from av1an.vapoursynth import create_vs_file
 
 def save_chunk_queue(temp: Path, chunk_queue: List[Chunk]) -> None:
     """
@@ -119,18 +121,14 @@ def create_video_queue_hybrid(project: Project, split_locations: List[int]) -> L
 
 
 def create_video_queue_vsffms2(project: Project, split_locations: List[int]) -> List[Chunk]:
-    script = "from vapoursynth import core\n" \
-             "core.ffms2.Source(\"{}\", cachefile=\"{}\").set_output()"
-    return create_video_queue_vs(project, split_locations, script)
+    return create_video_queue_vs(project, split_locations)
 
 
 def create_video_queue_vslsmash(project: Project, split_locations: List[int]) -> List[Chunk]:
-    script = "from vapoursynth import core\n" \
-             "core.lsmas.LWLibavSource(\"{}\").set_output()"
-    return create_video_queue_vs(project, split_locations, script)
+    return create_video_queue_vs(project, split_locations)
 
 
-def create_video_queue_vs(project: Project, split_locations: List[int], script: str) -> List[Chunk]:
+def create_video_queue_vs(project: Project, split_locations: List[int]) -> List[Chunk]:
     """
     Create a list of chunks using vspipe and ffms2 for frame accurate seeking
 
@@ -147,15 +145,10 @@ def create_video_queue_vs(project: Project, split_locations: List[int], script: 
     chunk_boundaries = zip(split_locs_fl, split_locs_fl[1:])
 
     source_file = project.input.absolute().as_posix()
-    vs_script = project.input
-
-    if not project.is_vs:
-        # create a vapoursynth script that will load the source with ffms2
-        load_script = project.temp / 'split' / 'loadscript.vpy'
-        cache_file = (project.temp / 'split' / 'ffms2cache.ffindex').absolute().as_posix()
-        with open(load_script, 'w+') as file:
-            file.write(script.format(source_file, cache_file))
-        vs_script = load_script
+    if project.is_vs:
+        vs_script = project.input
+    else:
+        vs_script = create_vs_file(project.temp, source_file, project.chunk_method)
 
     chunk_queue = [create_vs_chunk(project, index, vs_script, *cb) for index, cb in enumerate(chunk_boundaries)]
 
@@ -178,7 +171,7 @@ def create_vs_chunk(project: Project, index: int, vs_script: Path, frame_start: 
     frames = frame_end - frame_start
     frame_end -= 1  # the frame end boundary is actually a frame that should be included in the next chunk
 
-    vspipe_gen_cmd = ['vspipe', vs_script.as_posix(), '-y', '-', '-s', str(frame_start), '-e', str(frame_end)]
+    vspipe_gen_cmd = ['vspipe', vs_script.resolve().as_posix(), '-y', '-', '-s', str(frame_start), '-e', str(frame_end)]
     extension = ENCODERS[project.encoder].output_extension
     size = frames  # use the number of frames to prioritize which chunks encode first, since we don't have file size
 
@@ -225,7 +218,7 @@ def create_select_chunk(project: Project, index: int, src_path: Path, frame_star
 
     ffmpeg_gen_cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', src_path.as_posix(), '-vf',
                       f'select=between(n\\,{frame_start}\\,{frame_end}),setpts=PTS-STARTPTS', *project.pix_format,
-                      '-color_range', '0', '-f', 'yuv4mpegpipe', '-']
+                      '-f', 'yuv4mpegpipe', '-']
     extension = ENCODERS[project.encoder].output_extension
     size = frames  # use the number of frames to prioritize which chunks encode first, since we don't have file size
 
@@ -272,7 +265,7 @@ def create_chunk_from_segment(project: Project, index: int, file: Path) -> Chunk
     :return: A Chunk
     """
     ffmpeg_gen_cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', file.as_posix(), *project.pix_format,
-                      '-color_range', '0','-f', 'yuv4mpegpipe', '-']
+                      '-f', 'yuv4mpegpipe', '-']
     file_size = file.stat().st_size
     frames =  project.get_frames()
     extension = ENCODERS[project.encoder].output_extension
