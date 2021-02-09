@@ -23,6 +23,7 @@ except ImportError:
 
 # TODO: rework to class, account for dark scenes/banding
 
+
 def per_shot_target_quality_routine(project: Project, chunk: Chunk):
     """
     Applies per_shot_target_quality to this chunk. Determines what the cq value should be and sets the
@@ -40,7 +41,10 @@ def get_scene_scores(chunk, ffmpeg_pipe):
     Run ffmpeg scenedetection filter to get average amount of motion in scene
     """
 
-    pipecmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-', *ffmpeg_pipe]
+    pipecmd = [
+        'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-',
+        *ffmpeg_pipe
+    ]
 
     params = ['ffmpeg', '-hide_banner', '-i', '-', '-vf',
               'fps=fps=5,scale=\'min(960,iw)\':-1,hqdn3d=4:4:0:0,select=\'gte(scene,0)\',metadata=print', '-f', 'null',
@@ -148,7 +152,8 @@ def weighted_search(num1, vmaf1, num2, vmaf2, target):
     return new_point
 
 
-def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, n_threads) -> CommandPair:
+def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
+              n_threads) -> CommandPair:
     """
     Generate and return commands for probes at set Q values
     These are specifically not the commands that are generated
@@ -156,46 +161,77 @@ def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, n_threads) ->
     should be faster than the actual encoding commands.
     These should not be moved into encoder classes at this point.
     """
-    pipe = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-', '-vf',
-            f'select=not(mod(n\\,{probing_rate}))', *ffmpeg_pipe]
+    pipe = [
+        'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-', '-vf',
+        f'select=not(mod(n\\,{probing_rate}))', *ffmpeg_pipe
+    ]
 
     probe_name = gen_probes_names(chunk, q).with_suffix('.ivf').as_posix()
 
     if encoder == 'aom':
-        params = ['aomenc', '--passes=1', f'--threads={n_threads}', '--tile-columns=1',
-                  '--end-usage=q', '-b', '8', '--cpu-used=6', f'--cq-level={q}']
+        params = [
+            'aomenc', '--passes=1', f'--threads={n_threads}',
+            '--tile-columns=2', '--tile-rows=1', '--end-usage=q', '-b', '8',
+            '--cpu-used=6', f'--cq-level={q}', '--threads=16',
+            '--tile-columns=2', '--tile-rows=1', '--end-usage=q', '-b', '8',
+            '--cpu-used=6', '--cq-level=30', '--enable-filter-intra=0',
+            '--enable-smooth-intra=0', '--enable-paeth-intra=0',
+            '--enable-cfl-intra=0', '--enable-obmc=0', '--enable-palette=0',
+            '--enable-overlay=0', '--enable-intrabc=0',
+            '--enable-angle-delta=0', '--reduced-tx-type-set=1',
+            '--enable-dual-filter=0', '--enable-intra-edge-filter=0',
+            '--enable-order-hint=0', '--enable-tx64=0', '--enable-flip-idtx=0',
+            '--enable-dist-wtd-comp=0', '--enable-rect-tx=0',
+            '--enable-interintra-wedge=0', '--enable-onesided-comp=0',
+            '--enable-interintra-comp=0', '--enable-global-motion=0',
+            '--min-partition-size=32', '--max-partition-size=32'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
     elif encoder == 'x265':
-        params = ['x265', '--log-level', '0', '--no-progress',
-                  '--y4m', '--frame-threads', f'{n_threads}', '--preset', 'fast', '--crf', f'{q}']
+        params = [
+            'x265', '--log-level', '0', '--no-progress', '--y4m',
+            '--frame-threads', f'{n_threads}', '--preset', 'fast', '--crf',
+            f'{q}'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
     elif encoder == 'rav1e':
-        params = ['rav1e', '-y', '-s', '10', '--threads', f'{n_threads}', '--tiles', '32', '--quantizer', f'{q}']
+        params = [
+            'rav1e', '-y', '-s', '10', '--threads', f'{n_threads}', '--tiles',
+            '32', '--quantizer', f'{q}'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
     elif encoder == 'vpx':
-        params = ['vpxenc', '-b', '10', '--profile=2', '--passes=1', '--pass=1', '--codec=vp9',
-                  f'--threads={n_threads}', '--cpu-used=9', '--end-usage=q',
-                  f'--cq-level={q}', '--row-mt=1']
+        params = [
+            'vpxenc', '-b', '10', '--profile=2', '--passes=1', '--pass=1',
+            '--codec=vp9', f'--threads={n_threads}', '--cpu-used=9',
+            '--end-usage=q', f'--cq-level={q}', '--row-mt=1'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
     elif encoder == 'svt_av1':
-        params = ['SvtAv1EncApp', '-i', 'stdin', '--lp', f'{n_threads}',
-                  '--preset', '8', '--rc', '0', '--qp', f'{q}']
+        params = [
+            'SvtAv1EncApp', '-i', 'stdin', '--lp', f'{n_threads}', '--preset',
+            '8', '--rc', '0', '--qp', f'{q}'
+        ]
         cmd = CommandPair(pipe, [*params, '-b', probe_name, '-'])
 
     elif encoder == 'svt_vp9':
-        params = ['SvtVp9EncApp', '-i', 'stdin', '--lp', f'{n_threads}',
-                  '-enc-mode', '8', '-q', f'{q}']
+        params = [
+            'SvtVp9EncApp', '-i', 'stdin', '--lp', f'{n_threads}', '-enc-mode',
+            '8', '-q', f'{q}'
+        ]
         # TODO: pipe needs to output rawvideo
         cmd = CommandPair(pipe, [*params, '-b', probe_name, '-'])
 
     elif encoder == 'x264':
-        params = ['x264', '--log-level', 'error', '--demuxer', 'y4m',
-                  '-', '--no-progress', '--threads', f'{n_threads}', '--preset', 'medium', '--crf',
-                  f'{q}']
+        params = [
+            'x264', '--log-level', 'error', '--demuxer', 'y4m', '-',
+            '--no-progress', '--threads', f'{n_threads}', '--preset', 'medium',
+            '--crf', f'{q}'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
     return cmd
@@ -204,7 +240,8 @@ def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, n_threads) ->
 def gen_probes_names(chunk: Chunk, q):
     """Make name of vmaf probe
     """
-    return chunk.fake_input_path.with_name(f'v_{q}{chunk.name}').with_suffix('.ivf')
+    return chunk.fake_input_path.with_name(f'v_{q}{chunk.name}').with_suffix(
+        '.ivf')
 
 
 def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
@@ -238,12 +275,17 @@ def vmaf_probe(chunk: Chunk, q, project: Project, probing_rate):
     """
 
     n_threads = project.n_threads if project.n_threads else 12
-    cmd = probe_cmd(chunk, q, project.ffmpeg_pipe, project.encoder, probing_rate, n_threads)
+    cmd = probe_cmd(chunk, q, project.ffmpeg_pipe, project.encoder,
+                    probing_rate, n_threads)
     pipe = make_pipes(chunk.ffmpeg_gen_cmd, cmd)
     process_pipe(pipe, chunk)
-    vm = VMAF(n_threads=project.n_threads, model=project.vmaf_path, res=project.vmaf_res,
+    vm = VMAF(n_threads=project.n_threads,
+              model=project.vmaf_path,
+              res=project.vmaf_res,
               vmaf_filter=project.vmaf_filter)
-    file = vm.call_vmaf(chunk, gen_probes_names(chunk, q), vmaf_rate=probing_rate)
+    file = vm.call_vmaf(chunk,
+                        gen_probes_names(chunk, q),
+                        vmaf_rate=probing_rate)
     return file
 
 
@@ -280,7 +322,8 @@ def interpolate_data(vmaf_cq: list, target_quality):
 
 def plot_probes(project, vmaf_cq, chunk: Chunk, frames):
     if plt is None:
-        log(f'Matplotlib is not installed or could not be loaded. Unable to plot probes.')
+        log(f'Matplotlib is not installed or could not be loaded. Unable to plot probes.'
+            )
         return
     # Saving plot of vmaf calculation
 
@@ -295,7 +338,9 @@ def plot_probes(project, vmaf_cq, chunk: Chunk, frames):
     plt.plot(cq[0], cq[1], 'o', color='red', alpha=1)
     plt.grid(True)
     plt.xlim(project.min_q, project.max_q)
-    vmafs = [int(x[1]) for x in tl if isinstance(x[1], float) and not isnan(x[1])]
+    vmafs = [
+        int(x[1]) for x in tl if isinstance(x[1], float) and not isnan(x[1])
+    ]
     plt.ylim(min(vmafs), max(vmafs) + 1)
     plt.ylabel('VMAF')
     plt.title(f'Chunk: {chunk.name}, Frames: {frames}')
@@ -325,7 +370,8 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
     q_list.append(middle_point)
     last_q = middle_point
 
-    score = VMAF.read_weighted_vmaf(vmaf_probe(chunk, last_q, project, probing_rate))
+    score = VMAF.read_weighted_vmaf(
+        vmaf_probe(chunk, last_q, project, probing_rate))
     vmaf_cq.append((score, last_q))
 
     if project.probes < 3:
@@ -336,7 +382,8 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
         ## Formula -ln(1-project.vmaf_target/100) = vmaf_cq_deriv*cq + constant
         # cq = (-ln(1-project.vmaf_target/100) - constant)/vmaf_cq_deriv
         next_q = int(
-            round(last_q + (VMAF.transform_vmaf(project.target_quality) - VMAF.transform_vmaf(score)) / vmaf_cq_deriv))
+            round(last_q + (VMAF.transform_vmaf(project.target_quality) -
+                            VMAF.transform_vmaf(score)) / vmaf_cq_deriv))
 
         # Clamp
         if next_q < project.min_q:
@@ -349,10 +396,12 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
             return next_q
 
         # Second probe at guessed value
-        score_2 = VMAF.read_weighted_vmaf(vmaf_probe(chunk, next_q, project, probing_rate))
+        score_2 = VMAF.read_weighted_vmaf(
+            vmaf_probe(chunk, next_q, project, probing_rate))
 
         # Calculate slope
-        vmaf_cq_deriv = (VMAF.transform_vmaf(score_2) - VMAF.transform_vmaf(score)) / (next_q - last_q)
+        vmaf_cq_deriv = (VMAF.transform_vmaf(score_2) -
+                         VMAF.transform_vmaf(score)) / (next_q - last_q)
 
         # Same deal different slope
         next_q = int(round(
@@ -381,7 +430,8 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
         q_list.append(project.max_q)
 
     # Edge case check
-    score = VMAF.read_weighted_vmaf(vmaf_probe(chunk, next_q, project, probing_rate))
+    score = VMAF.read_weighted_vmaf(
+        vmaf_probe(chunk, next_q, project, probing_rate))
     vmaf_cq.append((score, next_q))
 
     if next_q == project.min_q and score < project.target_quality:
@@ -408,12 +458,14 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
 
     # VMAF search
     for _ in range(project.probes - 2):
-        new_point = weighted_search(vmaf_cq_lower, vmaf_lower, vmaf_cq_upper, vmaf_upper, project.target_quality)
+        new_point = weighted_search(vmaf_cq_lower, vmaf_lower, vmaf_cq_upper,
+                                    vmaf_upper, project.target_quality)
         if new_point in [x[1] for x in vmaf_cq]:
             break
 
         q_list.append(new_point)
-        score = VMAF.read_weighted_vmaf(vmaf_probe(chunk, new_point, project, probing_rate))
+        score = VMAF.read_weighted_vmaf(
+            vmaf_probe(chunk, new_point, project, probing_rate))
         vmaf_cq.append((score, new_point))
 
         # Update boundary
@@ -447,11 +499,13 @@ def per_frame_target_quality_routine(project: Project, chunk: Chunk):
     :param chunk: the Chunk
     :return: None
     """
-    chunk.per_frame_target_quality_q_list = per_frame_target_quality(chunk, project)
+    chunk.per_frame_target_quality_q_list = per_frame_target_quality(
+        chunk, project)
 
 
 def make_q_file(q_list, chunk):
-    qfile = chunk.fake_input_path.with_name(f'probe_{chunk.name}').with_suffix('.txt')
+    qfile = chunk.fake_input_path.with_name(f'probe_{chunk.name}').with_suffix(
+        '.txt')
     with open(qfile, 'w') as fl:
         text = ''
 
@@ -461,7 +515,8 @@ def make_q_file(q_list, chunk):
     return qfile
 
 
-def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, qp_file) -> CommandPair:
+def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
+                        qp_file) -> CommandPair:
     """
     Generate and return commands for probes at set Q values
     These are specifically not the commands that are generated
@@ -475,17 +530,20 @@ def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, qp_
 
     probe_name = gen_probes_names(chunk, q).with_suffix('.ivf').as_posix()
     if encoder == 'svt_av1':
-        params = ['SvtAv1EncApp', '-i', 'stdin',
-                  '--preset', '8', '--rc', '0', '--passes', '1',
-                  '--use-q-file', '1', '--qpfile', f'{qp_file.as_posix()}']
+        params = [
+            'SvtAv1EncApp', '-i', 'stdin', '--preset', '8', '--rc', '0',
+            '--passes', '1', '--use-q-file', '1', '--qpfile',
+            f'{qp_file.as_posix()}'
+        ]
 
         cmd = CommandPair(pipe, [*params, '-b', probe_name, '-'])
 
     elif encoder == 'x265':
-        params = ['x265', '--log-level', '0', '--no-progress',
-                  '--y4m', '--preset', 'fast', '--crf', f'{q}']
+        params = [
+            'x265', '--log-level', '0', '--no-progress', '--y4m', '--preset',
+            'fast', '--crf', f'{q}'
+        ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
-
 
     else:
         print('supported only by SVT-AV1 and x265')
@@ -496,10 +554,13 @@ def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, qp_
 
 def per_frame_probe(q_list, q, chunk, project):
     qfile = chunk.make_q_file(q_list)
-    cmd = per_frame_probe_cmd(chunk, q, project.ffmpeg_pipe, project.encoder, 1, qfile)
+    cmd = per_frame_probe_cmd(chunk, q, project.ffmpeg_pipe, project.encoder,
+                              1, qfile)
     pipe = make_pipes(chunk.ffmpeg_gen_cmd, cmd)
     process_pipe(pipe, chunk)
-    vm = VMAF(n_threads=project.n_threads, model=project.vmaf_path, res=project.vmaf_res,
+    vm = VMAF(n_threads=project.n_threads,
+              model=project.vmaf_path,
+              res=project.vmaf_res,
               vmaf_filter=project.vmaf_filter)
     fl = vm.call_vmaf(chunk, gen_probes_names(chunk, q))
     jsn = VMAF.read_json(fl)

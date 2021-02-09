@@ -21,7 +21,7 @@ def hash_path(s: str) -> int:
     Return hash of full path to file
     :param s: string
     """
-    assert type(s) == str
+    assert isinstance(s, str)
 
     return str(hashlib.sha3_512(s.encode()).hexdigest())[-8:]
 
@@ -67,7 +67,8 @@ def frame_probe_fast(source: Path, is_vs: bool = False):
             from vapoursynth import core
             plugins = vapoursynth.get_core().get_plugins()
             if 'systems.innocent.lsmas' in plugins:
-                total = core.lsmas.LWLibavSource(source.as_posix(), cache=False).num_frames
+                total = core.lsmas.LWLibavSource(source.as_posix(),
+                                                 cache=False).num_frames
                 return total
         except:
             video = cv2.VideoCapture(source.as_posix())

@@ -10,12 +10,8 @@ class Chunk:
     to be run on this chunk.
     """
 
-    def __init__(self,
-                 temp: Path,
-                 index: int,
-                 ffmpeg_gen_cmd: Command,
-                 output_ext: str, size: int,
-                 frames: int):
+    def __init__(self, temp: Path, index: int, ffmpeg_gen_cmd: Command,
+                 output_ext: str, size: int, frames: int):
         """
         Chunk class constructor
 
@@ -115,12 +111,14 @@ class Chunk:
         :param temp: the temp directory
         :return: A Chunk from the dictionary
         """
-        chunk = Chunk(temp, d['index'], d['ffmpeg_gen_cmd'], d['output_ext'], d['size'], d['frames'])
+        chunk = Chunk(temp, d['index'], d['ffmpeg_gen_cmd'], d['output_ext'],
+                      d['size'], d['frames'])
         chunk.per_shot_target_quality_cq = d['per_shot_target_quality_cq']
         return chunk
 
     def make_q_file(self, q_list):
-        qfile = self.fake_input_path.with_name(f'q_file_{self.name}').with_suffix('.txt')
+        qfile = self.fake_input_path.with_name(
+            f'q_file_{self.name}').with_suffix('.txt')
         with open(qfile, 'w') as fl:
             text = ''
 
