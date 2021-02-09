@@ -1,7 +1,8 @@
 import re
-import subprocess
-from subprocess import PIPE 
+from subprocess import PIPE
 from pathlib import Path
+from shlex import split
+from subprocess import run, Popen
 
 VS_EXTENSIONS = ['.vpy', '.py']
 
@@ -15,9 +16,8 @@ def frame_probe_vspipe(source: Path):
     Get frame count from vspipe.
     :param: source: Path to input vapoursynth (vpy/py) file
     """
-    cmd = ["vspipe", "--info", "-i", source.as_posix(), "-"]
-    r = subprocess.run(cmd, stdout=PIPE, stderr=PIPE)
-    # TODO: This regex process is overbuilt, as the output of vspipe is very simple and only has one "Frames" result.
+    cmd = f"vspipe -i {source.as_posix()}  -"
+    r = run(split(cmd), capture_output=True)
     matches = re.findall(r"Frames:\s*([0-9]+)\s", r.stderr.decode("utf-8") + r.stdout.decode("utf-8"))
     return int(matches[-1])
 

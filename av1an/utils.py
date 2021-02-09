@@ -8,8 +8,6 @@ import cv2
 import numpy as np
 import hashlib
 
-
-from av1an.commandtypes import Command
 from av1an.ffmpeg import frame_probe_ffmpeg
 from av1an.vapoursynth import frame_probe_vspipe, is_vapoursynth
 
@@ -23,7 +21,7 @@ def hash_path(s: str) -> int:
     Return hash of full path to file
     :param s: string
     """
-    assert type(s) == str
+    assert isinstance(s, str)
 
     return str(hashlib.sha3_512(s.encode()).hexdigest())[-8:]
 
@@ -66,9 +64,11 @@ def frame_probe_fast(source: Path, is_vs: bool = False):
     if not is_vs:
         try:
             import vapoursynth
+            from vapoursynth import core
             plugins = vapoursynth.get_core().get_plugins()
             if 'systems.innocent.lsmas' in plugins:
                 total = core.lsmas.LWLibavSource(source.as_posix(), cache=False).num_frames
+                return total
         except:
             video = cv2.VideoCapture(source.as_posix())
             total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
