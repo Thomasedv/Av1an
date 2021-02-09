@@ -4,12 +4,14 @@ import atexit
 import os
 import shlex
 import sys
+
 from pathlib import Path
 
+from av1an.startup.validate_commands import validate_inputs
 from av1an.encoder import ENCODERS
 from av1an.project import Project
-from av1an.startup.validate_commands import validate_inputs
 from av1an.utils import terminate
+from av1an.logger import log
 
 
 def set_target_quality(project):
@@ -30,8 +32,7 @@ def set_target_quality(project):
     encoder = ENCODERS[project.encoder]
 
     if project.encoder not in ('x265', 'svt_av1') and project.target_quality_method == 'per_frame':
-        print(
-            f":: Per frame Target Quality is not supported for selected encoder\n:: Supported encoders: x265, svt_av1")
+        print(f":: Per frame Target Quality is not supported for selected encoder\n:: Supported encoders: x265, svt_av1")
         exit()
 
     # setting range for q values
@@ -110,4 +111,4 @@ def startup_check(project: Project):
     project.ffmpeg = shlex.split(project.ffmpeg)
 
     project.pix_format = ['-strict', '-1', '-pix_fmt', project.pix_format]
-    project.ffmpeg_pipe = [*project.ffmpeg, *project.pix_format, '-f', 'yuv4mpegpipe', '-']
+    project.ffmpeg_pipe = [*project.ffmpeg, *project.pix_format,'-color_range', '0', '-f', 'yuv4mpegpipe', '-']
