@@ -21,9 +21,6 @@ except ImportError:
     plt = None
 
 
-# TODO: rework to class, account for dark scenes/banding
-
-
 def per_shot_target_quality_routine(project: Project, chunk: Chunk):
     """
     Applies per_shot_target_quality to this chunk. Determines what the cq value should be and sets the
@@ -95,8 +92,7 @@ def adapt_probing_rate(rate, frames):
     """
 
     # Todo: Make it depend on amount of motion in scene
-
-    # For current moment 4 for everything
+    # For current moment it's 4 for everything
 
     if frames > 0:
         return 4
@@ -199,7 +195,8 @@ def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
     elif encoder == 'rav1e':
         params = [
             'rav1e', '-y', '-s', '10', '--threads', f'{n_threads}', '--tiles',
-            '32', '--quantizer', f'{q}'
+            '16', '--quantizer', f'{q}', '--low-latency',
+            '--rdo-lookahead-frames', '5'
         ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
@@ -214,7 +211,18 @@ def probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
     elif encoder == 'svt_av1':
         params = [
             'SvtAv1EncApp', '-i', 'stdin', '--lp', f'{n_threads}', '--preset',
-            '8', '--rc', '0', '--qp', f'{q}'
+            '8', '-q', f'{q}', '--tile-rows', '1', '--tile-columns', '2',
+            '--hme', '0', '--pred-struct', '0', '--sg-filter-mode', '0',
+            '--enable-restoration-filtering', '0', '--cdef-level', '0',
+            '--disable-dlf', '0', '--mrp-level', '0', '--enable-tpl-la', '0',
+            '--enable-mfmv', '0', '--enable-local-warp', '0',
+            '--enable-global-motion', '0', '--enable-interintra-comp', '0',
+            '--obmc-level', '0', '--rdoq-level', '0', '--filter-intra-level',
+            '0', '--enable-intra-edge-filter', '0',
+            '--enable-pic-based-rate-est', '0', '--pred-me', '0',
+            '--bipred-3x3', '0', '--compound', '0', '--use-default-me-hme',
+            '0', '--ext-block', '0', '--hbd-md', '0', '--palette-level', '0',
+            '--umv', '0', '--tf-level', '3'
         ]
         cmd = CommandPair(pipe, [*params, '-b', probe_name, '-'])
 
@@ -356,7 +364,6 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
     frames = chunk.frames
 
     # get_scene_scores(chunk, project.ffmpeg_pipe)
-
     # Adapt probing rate
     if project.probing_rate in (1, 2):
         probing_rate = project.probing_rate
@@ -538,17 +545,17 @@ def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
         ]
 
         cmd = CommandPair(pipe, [*params, '-b', probe_name, '-'])
-
+    else:
+        print('supported only by SVT-AV1')
+        exit()
+    """
     elif encoder == 'x265':
         params = [
             'x265', '--log-level', '0', '--no-progress', '--y4m', '--preset',
             'fast', '--crf', f'{q}'
         ]
         cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
-
-    else:
-        print('supported only by SVT-AV1 and x265')
-        exit()
+    """
 
     return cmd
 

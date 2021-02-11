@@ -28,19 +28,20 @@ class Queue:
 
     def encoding_loop(self):
         try:
-            with concurrent.futures.ThreadPoolExecutor(
-                    max_workers=self.project.workers) as executor:
-                future_cmd = {
-                    executor.submit(self.encode_chunk, cmd): cmd
-                    for cmd in self.chunk_queue
-                }
-                for future in concurrent.futures.as_completed(future_cmd):
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        _, _, exc_tb = sys.exc_info()
-                        print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
-                        terminate()
+            if len(self.chunk_queue) != 0:
+                with concurrent.futures.ThreadPoolExecutor(
+                        max_workers=self.project.workers) as executor:
+                    future_cmd = {
+                        executor.submit(self.encode_chunk, cmd): cmd
+                        for cmd in self.chunk_queue
+                    }
+                    for future in concurrent.futures.as_completed(future_cmd):
+                        try:
+                            future.result()
+                        except Exception as exc:
+                            _, _, exc_tb = sys.exc_info()
+                            print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
+                            terminate()
         finally:
             self.project.counter.close()
 
