@@ -245,6 +245,7 @@ def gen_probes_names(chunk: Chunk, q):
 
 
 def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
+    import sys
     ffmpeg_gen_pipe = subprocess.Popen(ffmpeg_gen_cmd,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT)
@@ -252,7 +253,7 @@ def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
     ffmpeg_pipe = subprocess.Popen(command[0],
                                    stdin=ffmpeg_gen_pipe.stdout,
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+                                   stderr=sys.stdout)
 
     pipe = subprocess.Popen(command[1],
                             stdin=ffmpeg_pipe.stdout,

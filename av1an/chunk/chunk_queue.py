@@ -156,7 +156,7 @@ def create_video_queue_vs(project: Project,
     # pair up adjacent members of this list ex: [0, 10, 20, 30] -> [(0, 10), (10, 20), (20, 30)]
     chunk_boundaries = zip(split_locs_fl, split_locs_fl[1:])
 
-    source_file = project.input.absolute().as_posix()
+    source_file = project.input.absolute()
     if project.is_vs:
         vs_script = project.input
     else:

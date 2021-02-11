@@ -1,6 +1,9 @@
 import concurrent
 import concurrent.futures
+import time
 from typing import List
+
+from av1an.encoder import ENCODERS
 from av1an.target_quality import (per_frame_target_quality_routine,
                                   per_shot_target_quality_routine)
 from av1an.utils import frame_probe, terminate
@@ -105,7 +108,9 @@ class Queue:
                 return
 
             except Exception as e:
-                msg = f':: Chunk #{chunk.index} crashed with:\n:: Exception: {type(e)}\n {e}\n:: Restarting chunk\n'
+                import traceback
+                exe = traceback.format_exc()
+                msg = f':: Chunk #{chunk.index} crashed with:\n:: Exception: {type(e)}\n {exe}\n:: Restarting chunk\n'
                 log(msg + '\n')
                 print(msg)
                 restart_count += 1
