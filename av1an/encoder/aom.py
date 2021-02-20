@@ -45,9 +45,11 @@ class Aom(Encoder):
 
         adjusted_command = command.copy()
 
-        i = list_index_of_regex(adjusted_command, r"--cq-level=.+")
-        adjusted_command[i] = f'--cq-level={q}'
-
+        try:
+            i = list_index_of_regex(adjusted_command, r"--cq-level=.+")
+            adjusted_command[i] = f'--cq-level={q}'
+        except ValueError:
+            adjusted_command.append(f'--cq-level={q}')
         return adjusted_command
 
     def match_line(self, line: str):

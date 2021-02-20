@@ -1,9 +1,9 @@
 import pprint
 import re
 import subprocess
-from math import isnan
 
 import numpy as np
+from math import isnan
 from scipy import interpolate
 
 from av1an.chunk import Chunk
@@ -251,7 +251,6 @@ def gen_probes_names(chunk: Chunk, q):
 
 
 def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
-    import sys
     ffmpeg_gen_pipe = subprocess.Popen(ffmpeg_gen_cmd,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT)
@@ -259,7 +258,7 @@ def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
     ffmpeg_pipe = subprocess.Popen(command[0],
                                    stdin=ffmpeg_gen_pipe.stdout,
                                    stdout=subprocess.PIPE,
-                                   stderr=sys.stdout)
+                                   stderr=subprocess.STDOUT)
 
     pipe = subprocess.Popen(command[1],
                             stdin=ffmpeg_pipe.stdout,
