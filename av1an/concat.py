@@ -40,7 +40,7 @@ def concatenate_ffmpeg(temp: Path, output: Path, encoder: str):
     with open(temp / "concat", 'w') as f:
 
         encode_files = sorted((temp / 'encode').iterdir())
-        f.writelines(f'file {shlex.quote("file:"+str(file.absolute()))}\n'
+        f.writelines(f'file {shlex.quote("file:" + str(file.absolute()))}\n'
                      for file in encode_files)
 
     # Add the audio/subtitles/else file if one was extracted from the input
@@ -141,7 +141,7 @@ def _concatenate_mkvmerge(files, output, file_limit, cmd_limit, flip=False):
     for i, file in enumerate(files[1:]):
         new_cmd = cmd + ['+{}'.format(file)]
         if sum(len(s) for s in new_cmd) < cmd_limit \
-            and (file_limit == -1 or i < max(1, file_limit - 10)):
+                and (file_limit == -1 or i < max(1, file_limit - 10)):
             cmd = new_cmd
         else:
             remaining = files[i + 1:]

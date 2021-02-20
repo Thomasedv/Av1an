@@ -1,17 +1,19 @@
 #!/bin/env python
 
+import json
 import os
 import subprocess
-import json
 from pathlib import Path
 from subprocess import PIPE, STDOUT
 from typing import List
+
 from numpy import linspace
 
+from .logger import log
 from .project import Project
 from .scenedetection import aom_keyframes, AOM_KEYFRAMES_DEFAULT_PARAMS, pyscene, ffmpeg
-from .logger import log
-from .utils import terminate, frame_probe
+from .utils import terminate
+
 
 # TODO: organize to single segmenting/splitting module
 
@@ -154,7 +156,7 @@ def calc_split_locations(project: Project) -> List[int]:
     """
     # inherit video params from aom encode unless we are using a different encoder, then use defaults
     aom_keyframes_params = project.video_params if (
-        project.encoder == 'aom') else AOM_KEYFRAMES_DEFAULT_PARAMS
+            project.encoder == 'aom') else AOM_KEYFRAMES_DEFAULT_PARAMS
 
     sc = []
 
@@ -180,7 +182,8 @@ def calc_split_locations(project: Project) -> List[int]:
 
     elif project.split_method == 'ffmpeg':
         sc = ffmpeg(project.input, project.threshold, project.min_scene_len,
-                    project.get_frames(), project.is_vs, project.temp)
+                    project.get_frames(), project.is_vs,
+                    project.temp)
 
     # Write scenes to file
     if project.scenes:

@@ -81,7 +81,7 @@ class Vvc(Encoder):
         """
         # Filter cmd not used?
         _, enc_cmd = self.compose_1_pass(a, c, output)[0] if passes == 1 else \
-                              self.compose_2_pass(a, c, output)[current_pass - 1]
+            self.compose_2_pass(a, c, output)[current_pass - 1]
 
         if man_q:
             enc_cmd = self.man_q(enc_cmd, man_q)

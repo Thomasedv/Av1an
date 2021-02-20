@@ -9,6 +9,7 @@ class Chunk:
     Chunk class. Stores information relating to a chunk. The command that gets the chunk and the encoding commands
     to be run on this chunk.
     """
+
     def __init__(self, temp: Path, index: int, ffmpeg_gen_cmd: Command,
                  output_ext: str, size: int, frames: int):
         """
@@ -31,6 +32,7 @@ class Chunk:
         self.output_ext: str = output_ext
         self.per_shot_target_quality_cq = None
         self.per_frame_target_quality_q_list = None
+        self.cancel = False
 
     def to_dict(self) -> Dict[str, Any]:
         """

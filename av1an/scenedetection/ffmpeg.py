@@ -34,12 +34,9 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
         vspipe_cmd = compose_vapoursynth_pipe(video, vspipe_fifo)
         vspipe_process = Popen(vspipe_cmd)
 
-    cmd = [
-        'ffmpeg', '-hwaccel', 'auto', '-hide_banner', '-i',
-        str(vspipe_fifo if is_vs else video.as_posix()), '-an', '-sn', '-vf',
-        'scale=\'min(960,iw):-1:flags=neighbor\',select=\'gte(scene,0)\',metadata=print',
-        '-f', 'null', '-'
-    ]
+    cmd = ['ffmpeg', '-hwaccel', 'auto', '-hide_banner', '-i', str(vspipe_fifo if is_vs else video.as_posix()), '-an',
+           '-sn', '-vf', 'scale=\'min(960,iw):-1:flags=neighbor\',select=\'gte(scene,0)\',metadata=print', '-f', 'null',
+           '-']
     pipe = Popen(cmd,
                  stdout=subprocess.PIPE,
                  stderr=subprocess.STDOUT,

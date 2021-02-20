@@ -2,6 +2,7 @@
 import argparse
 import sys
 from pathlib import Path
+
 from .project import Project
 
 
@@ -10,6 +11,7 @@ class Args:
     Class responsible for arg parsing
     Creation of original project file
     """
+
     def __init__(self):
         self.parser = self.arg_parsing()
         self.defaults = self.get_defaults()

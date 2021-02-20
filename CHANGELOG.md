@@ -8,7 +8,6 @@
 - Fix running not required frame probe
 - Chunk restarting
 - Fixed ffmpeg segmenting
-- `color_range 0` by default for pipes
 - aomenc target quality probes to be 8 bit
 
 ### 4

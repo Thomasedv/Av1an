@@ -169,7 +169,7 @@ class Project(object):
             return self.workers
 
         cpu = os.cpu_count()
-        ram = round(virtual_memory().total / 2**30)
+        ram = round(virtual_memory().total / 2 ** 30)
 
         if self.encoder in ('aom', 'rav1e', 'vpx'):
             workers = round(min(cpu / 3, ram / 1.5))

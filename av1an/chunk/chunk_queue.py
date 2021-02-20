@@ -156,7 +156,7 @@ def create_video_queue_vs(project: Project,
     # pair up adjacent members of this list ex: [0, 10, 20, 30] -> [(0, 10), (10, 20), (20, 30)]
     chunk_boundaries = zip(split_locs_fl, split_locs_fl[1:])
 
-    source_file = project.input.absolute().as_posix()
+    source_file = project.input.absolute()
     if project.is_vs:
         vs_script = project.input
     else:
@@ -247,7 +247,7 @@ def create_select_chunk(project: Project, index: int, src_path: Path,
         'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i',
         src_path.as_posix(), '-vf',
         f'select=between(n\\,{frame_start}\\,{frame_end}),setpts=PTS-STARTPTS',
-        *project.pix_format, '-color_range', '0', '-f', 'yuv4mpegpipe', '-'
+        *project.pix_format, '-f', 'yuv4mpegpipe', '-'
     ]
     extension = ENCODERS[project.encoder].output_extension
     size = frames  # use the number of frames to prioritize which chunks encode first, since we don't have file size
@@ -301,7 +301,7 @@ def create_chunk_from_segment(project: Project, index: int,
     """
     ffmpeg_gen_cmd = [
         'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i',
-        file.as_posix(), *project.pix_format, '-color_range', '0', '-f',
+        file.as_posix(), *project.pix_format, '-f',
         'yuv4mpegpipe', '-'
     ]
     file_size = file.stat().st_size

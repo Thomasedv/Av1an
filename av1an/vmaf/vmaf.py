@@ -5,19 +5,19 @@ import shlex
 import subprocess
 import sys
 from collections import deque
-
+from math import log as ln
+from math import log10, ceil, floor
 from pathlib import Path
 from subprocess import PIPE, STDOUT
 
 import numpy as np
-from math import log10, ceil, floor
-from math import log as ln
 
 from av1an.logger import log
 
 try:
     import matplotlib
     from matplotlib import pyplot as plt
+
     matplotlib.use('Agg')
 except ImportError:
     matplotlib = None
@@ -112,13 +112,13 @@ class VMAF:
                   '1024', '-hide_banner', '-r', '60', '-i', encoded.as_posix(),
                   '-r', '60', '-i', '-')
 
-        filter_complex = ('-filter_complex', )
+        filter_complex = ('-filter_complex',)
 
         # Change framerate of comparison to framerate of probe
         n_subsamples = f':n_subsample={vmaf_rate}' if vmaf_rate else ''
 
         distorted = f'[0:v]scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[distorted];'
-        
+
         ref = fr'[1:v]{self.vmaf_filter}scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[ref];'
 
         vmaf_filter = f"[distorted][ref]libvmaf=log_fmt='json'{n_subsamples}:eof_action=endall:log_path={shlex.quote(fl)}{self.model}{self.n_threads}"

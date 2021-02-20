@@ -1,17 +1,18 @@
-import subprocess
-
-from math import isnan
-import numpy as np
-import re
 import pprint
+import re
+import subprocess
+from math import isnan
+
+import numpy as np
 from scipy import interpolate
 
-from av1an.vmaf import VMAF
-from av1an.logger import log
-from av1an.commandtypes import CommandPair, Command
-from av1an.project import Project
 from av1an.chunk import Chunk
+from av1an.commandtypes import CommandPair, Command
+from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
+from av1an.project import Project
+from av1an.vmaf import VMAF
+
 try:
     import matplotlib
     from matplotlib import pyplot as plt
@@ -42,11 +43,9 @@ def get_scene_scores(chunk, ffmpeg_pipe):
         *ffmpeg_pipe
     ]
 
-    params = [
-        'ffmpeg', '-hide_banner', '-i', '-', '-vf',
-        'fps=fps=5,scale=\'min(960,iw)\':-1,hqdn3d=4:4:0:0,select=\'gte(scene,0)\',metadata=print',
-        '-f', 'null', '-'
-    ]
+    params = ['ffmpeg', '-hide_banner', '-i', '-', '-vf',
+              'fps=fps=5,scale=\'min(960,iw)\':-1,hqdn3d=4:4:0:0,select=\'gte(scene,0)\',metadata=print', '-f', 'null',
+              '-']
     cmd = CommandPair(pipecmd, [*params])
     pipe = make_pipes(chunk.ffmpeg_gen_cmd, cmd)
 
@@ -92,8 +91,8 @@ def adapt_probing_rate(rate, frames):
     :return: new probing rate
     """
 
-    #Todo: Make it depend on amount of motion in scene
-    #For current moment it's 4 for everything
+    # Todo: Make it depend on amount of motion in scene
+    # For current moment it's 4 for everything
 
     if frames > 0:
         return 4
@@ -252,7 +251,7 @@ def gen_probes_names(chunk: Chunk, q):
 
 
 def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
-
+    import sys
     ffmpeg_gen_pipe = subprocess.Popen(ffmpeg_gen_cmd,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT)
@@ -260,7 +259,7 @@ def make_pipes(ffmpeg_gen_cmd: Command, command: CommandPair):
     ffmpeg_pipe = subprocess.Popen(command[0],
                                    stdin=ffmpeg_gen_pipe.stdout,
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+                                   stderr=sys.stdout)
 
     pipe = subprocess.Popen(command[1],
                             stdin=ffmpeg_pipe.stdout,
@@ -382,40 +381,39 @@ def per_shot_target_quality(chunk: Chunk, project: Project):
     vmaf_cq.append((score, last_q))
 
     if project.probes < 3:
-        #Use Euler's method with known relation between cq and vmaf
+        # Use Euler's method with known relation between cq and vmaf
         vmaf_cq_deriv = -0.18
         ## Formula -ln(1-score/100) = vmaf_cq_deriv*last_q + constant
-        #constant = -ln(1-score/100) - vmaf_cq_deriv*last_q
+        # constant = -ln(1-score/100) - vmaf_cq_deriv*last_q
         ## Formula -ln(1-project.vmaf_target/100) = vmaf_cq_deriv*cq + constant
-        #cq = (-ln(1-project.vmaf_target/100) - constant)/vmaf_cq_deriv
+        # cq = (-ln(1-project.vmaf_target/100) - constant)/vmaf_cq_deriv
         next_q = int(
             round(last_q + (VMAF.transform_vmaf(project.target_quality) -
                             VMAF.transform_vmaf(score)) / vmaf_cq_deriv))
 
-        #Clamp
+        # Clamp
         if next_q < project.min_q:
             next_q = project.min_q
         if project.max_q < next_q:
             next_q = project.max_q
 
-        #Single probe cq guess or exit to avoid divide by zero
+        # Single probe cq guess or exit to avoid divide by zero
         if project.probes == 1 or next_q == last_q:
             return next_q
 
-        #Second probe at guessed value
+        # Second probe at guessed value
         score_2 = VMAF.read_weighted_vmaf(
             vmaf_probe(chunk, next_q, project, probing_rate))
 
-        #Calculate slope
+        # Calculate slope
         vmaf_cq_deriv = (VMAF.transform_vmaf(score_2) -
                          VMAF.transform_vmaf(score)) / (next_q - last_q)
 
-        #Same deal different slope
-        next_q = int(
-            round(next_q + (VMAF.transform_vmaf(project.target_quality) -
-                            VMAF.transform_vmaf(score_2)) / vmaf_cq_deriv))
+        # Same deal different slope
+        next_q = int(round(
+            next_q + (VMAF.transform_vmaf(project.target_quality) - VMAF.transform_vmaf(score_2)) / vmaf_cq_deriv))
 
-        #Clamp
+        # Clamp
         if next_q < project.min_q:
             next_q = project.min_q
         if project.max_q < next_q:
@@ -532,10 +530,9 @@ def per_frame_probe_cmd(chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate,
     should be faster than the actual encoding commands.
     These should not be moved into encoder classes at this point.
     """
-    pipe = [
-        'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-', '-vf',
-        f'select=not(mod(n\\,{probing_rate}))', *ffmpeg_pipe
-    ]
+    pipe = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', '-', '-vf',
+            f'select=not(mod(n\\,{probing_rate}))',
+            *ffmpeg_pipe]
 
     probe_name = gen_probes_names(chunk, q).with_suffix('.ivf').as_posix()
     if encoder == 'svt_av1':
@@ -593,9 +590,7 @@ def per_frame_target_quality(chunk, project):
         q_list = gen_next_q(frame_list, chunk, project)
         vmafs = per_frame_probe(q_list, 1, chunk, project)
         frame_list = add_probes_to_frame_list(frame_list, q_list, vmafs)
-        mse = round(
-            get_square_error([x['probes'][-1][1] for x in frame_list],
-                             project.target_quality), 2)
+        mse = round(get_square_error([x['probes'][-1][1] for x in frame_list], project.target_quality), 2)
         # print(':: MSE:', mse)
 
         if mse < 1.0:
@@ -608,7 +603,7 @@ def get_square_error(ls, target):
     total = 0
     for i in ls:
         dif = i - target
-        total += dif**2
+        total += dif ** 2
     mse = total / len(ls)
     return mse
 
@@ -646,7 +641,6 @@ def gen_next_q(frame_list, chunk, project):
 
 
 def search(q1, v1, q2, v2, target):
-
     if abs(target - v2) < 0.5:
         return q2
 

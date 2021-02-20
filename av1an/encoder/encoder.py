@@ -12,6 +12,7 @@ class Encoder(ABC):
     """
     An abstract class used for encoders
     """
+
     def __init__(self, encoder_bin: str, encoder_help: str,
                  default_args: Command, default_passes: int,
                  default_q_range: Tuple[int, int], output_extension: str):

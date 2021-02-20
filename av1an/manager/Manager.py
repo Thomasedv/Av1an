@@ -2,7 +2,6 @@ import json
 import shutil
 import sys
 import time
-from multiprocessing.managers import BaseManager
 from pathlib import Path
 from typing import List
 
@@ -14,10 +13,7 @@ from av1an.logger import log, set_log
 from av1an.project.Project import Project
 from av1an.split import split_routine
 from av1an.startup.file_validation import process_inputs
-
-from av1an.utils import frame_probe, terminate
 from av1an.vmaf import VMAF
-
 from .Counter import BaseManager, Counter, Manager
 from .Queue import Queue
 
@@ -65,7 +61,7 @@ class Main:
 
                 print(f'Finished: {round(time.time() - tm, 1)}s\n')
             except KeyboardInterrupt:
-                print('Encoding stopped')
+                print(' \nEncoding stopped')
                 sys.exit()
 
 
@@ -147,9 +143,8 @@ class EncodingManager:
     def startup(self, project: Project, chunk_queue: List[Chunk]):
         clips = len(chunk_queue)
         project.workers = min(project.workers, clips)
-        print(
-            f'\rQueue: {clips} Workers: {project.workers} Passes: {project.passes}\n'
-            f'Params: {" ".join(project.video_params)}')
+        print(f'\rQueue: {clips} Workers: {project.workers} Passes: {project.passes}\n'
+              f'Params: {" ".join(project.video_params)}')
         BaseManager.register('Counter', Counter)
         counter = Manager().Counter(project.get_frames(), self.initial_frames,
                                     not project.quiet)
