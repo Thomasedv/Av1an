@@ -33,7 +33,10 @@ def pyscene(video, threshold, min_scene_len, is_vs, temp, quiet):
         return []
 
     log(
-        f'Starting PySceneDetect:\nThreshold: {threshold}, Min scene length: {min_scene_len}\n Is Vapoursynth input: {is_vs}\n'
+        f'Starting PySceneDetect:')
+    log(f'Threshold: {threshold}')
+    log(f'Min scene length: {min_scene_len}')
+    log(f'Is Vapoursynth input: {is_vs}'
     )
 
     if is_vs:
@@ -84,6 +87,6 @@ def pyscene(video, threshold, min_scene_len, is_vs, temp, quiet):
     # Remove 0 from list
     if scenes[0] == 0:
         scenes.remove(0)
-    log(f'Found scenes: {len(scenes)}\n')
+    log(f'Found scenes: {len(scenes)}')
 
     return scenes

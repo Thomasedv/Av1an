@@ -1,16 +1,14 @@
 import concurrent
 import concurrent.futures
 import time
-from typing import List
-
-from av1an.encoder import ENCODERS
-from av1an.target_quality import (per_frame_target_quality_routine,
-                                  per_shot_target_quality_routine)
-from av1an.utils import frame_probe, terminate
-from av1an.resume import write_progress_file
-from av1an.chunk import Chunk
-from av1an.logger import log
 from pathlib import Path
+
+from av1an.chunk import Chunk
+from av1an.encoder import ENCODERS
+from av1an.logger import log
+from av1an.resume import write_progress_file
+from av1an.target_quality import TargetQuality
+from av1an.utils import frame_probe, terminate
 from .Pipes import tqdm_bar
 
 
@@ -25,6 +23,7 @@ class Queue:
         self.project = project
         self.thread_executor = concurrent.futures.ThreadPoolExecutor()
         self.status = 'Ok'
+        self.tq = TargetQuality(project) if project.target_quality else None
 
     def encoding_loop(self):
         try:
@@ -40,7 +39,9 @@ class Queue:
                             future.result()
                         except Exception as exc:
                             _, _, exc_tb = sys.exc_info()
-                            print(f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}')
+                            print(
+                                f'Encoding error {exc}\nAt line {exc_tb.tb_lineno}'
+                            )
                             terminate()
         finally:
             self.project.counter.close()
@@ -64,14 +65,14 @@ class Queue:
 
                 chunk_frames = chunk.frames
 
-                log(f'Enc: {chunk.index}, {chunk_frames} fr\n\n')
+                log(f'Enc: {chunk.index}, {chunk_frames} fr')
 
                 # Target Quality Mode
                 if self.project.target_quality:
                     if self.project.target_quality_method == 'per_shot':
-                        per_shot_target_quality_routine(self.project, chunk)
+                        self.tq.per_shot_target_quality_routine(chunk)
                     if self.project.target_quality_method == 'per_frame':
-                        per_frame_target_quality_routine(self.project, chunk)
+                        self.tq.per_frame_target_quality_routine(chunk)
 
                 ENCODERS[self.project.encoder].on_before_chunk(
                     self.project, chunk)
@@ -98,8 +99,8 @@ class Queue:
                                         chunk, encoded_frames)
 
                 enc_time = round(time.time() - st_time, 2)
-                log(f'Done: {chunk.index} Fr: {encoded_frames}/{chunk_frames}\n'
-                    f'Fps: {round(encoded_frames / enc_time, 4)} Time: {enc_time} sec.\n\n'
+                log(f'Done: {chunk.index} Fr: {encoded_frames}/{chunk_frames}')
+                log(f'Fps: {round(encoded_frames / enc_time, 4)} Time: {enc_time} sec.'
                     )
                 return
 
@@ -116,9 +117,9 @@ class Queue:
                 print(msg)
                 restart_count += 1
 
-        msg = f'::FATAL::\n::Chunk #{chunk.index} failed more than 3 times, shutting down thread\n\n'
-        log(msg)
-        print(msg)
+        msg1, msg2 = 'FATAL', f'Chunk #{chunk.index} failed more than 3 times, shutting down thread'
+        log(msg1, msg2)
+        print(f'::{msg1}\n::{msg2}')
         self.status = 'FATAL'
 
     def frame_check_output(self,
@@ -127,7 +128,7 @@ class Queue:
                            last_chunk=False) -> int:
         actual_frames = frame_probe(chunk.output_path)
         if actual_frames != expected_frames:
-            msg = f':: Chunk #{chunk.index}: {actual_frames}/{expected_frames} fr'
+            msg = f'Chunk #{chunk.index}: {actual_frames}/{expected_frames} fr'
             log(msg)
-            print(msg)
+            print('::' + msg)
         return actual_frames
