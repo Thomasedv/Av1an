@@ -23,6 +23,8 @@ def process_pipe(pipe, chunk: Chunk):
             encoder_history.append(line)
 
     if pipe.returncode != 0 and pipe.returncode != -2:
+        if pipe.returncode == 3221225786:
+            raise KeyboardInterrupt('User stopped')
         msg1 = f'Encoder encountered an error: {pipe.returncode}'
         msg2 = f'Chunk: {chunk.index}' + \
                '\n'.join(encoder_history)
