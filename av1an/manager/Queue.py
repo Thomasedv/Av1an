@@ -10,6 +10,7 @@ from av1an.resume import write_progress_file
 from av1an.target_quality import TargetQuality
 from av1an.utils import frame_probe, terminate
 from .Pipes import tqdm_bar
+import sys
 
 
 class Queue:
@@ -118,6 +119,7 @@ class Queue:
                 restart_count += 1
 
         msg1, msg2 = 'FATAL', f'Chunk #{chunk.index} failed more than 3 times, shutting down thread'
+        chunk.cancel = True
         log(msg1, msg2)
         print(f'::{msg1}\n::{msg2}')
         self.status = 'FATAL'

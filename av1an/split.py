@@ -32,6 +32,8 @@ def split_routine(project: Project, resuming: bool) -> List[int]:
     if resuming:
         scenes, frames = read_scenes_from_file(scene_file)
         project.set_frames(frames)
+        if project.extra_split:
+            scenes = extra_splits(project, scenes)
         return scenes
 
     # Run scenedetection or skip
@@ -44,6 +46,8 @@ def split_routine(project: Project, resuming: bool) -> List[int]:
         log('Using Saved Scenes')
         scenes, frames = read_scenes_from_file(Path(project.scenes))
         project.set_frames(frames)
+        if project.extra_split:
+            scenes = extra_splits(project, scenes)
 
     else:
         # determines split frames with pyscenedetect or aom keyframes
