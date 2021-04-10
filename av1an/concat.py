@@ -2,10 +2,14 @@ import os
 import platform
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from subprocess import PIPE, STDOUT
 
 from av1an.logger import log
+
+if platform.system() == "Linux":
+    import resource
 
 
 def vvc_concat(temp: Path, output: Path):
@@ -21,7 +25,7 @@ def vvc_concat(temp: Path, output: Path):
     bitstreams = ' '.join(bitstreams)
     cmd = f'vvc_concat  {bitstreams} {output.as_posix()}'
 
-    output = subprocess.run(cmd, shell=True)
+    subprocess.run(cmd, shell=True, check=True)
 
 
 def concatenate_ffmpeg(temp: Path, output: Path, encoder: str):
@@ -33,7 +37,6 @@ def concatenate_ffmpeg(temp: Path, output: Path, encoder: str):
     :param encoder: the encoder
     :return: None
     """
-    """With FFMPEG concatenate encoded segments into final file."""
 
     log('Concatenating')
 
@@ -59,7 +62,8 @@ def concatenate_ffmpeg(temp: Path, output: Path, encoder: str):
             'frag_keyframe+empty_moov', '-map', '0', '-f', 'mp4',
             output.as_posix()
         ]
-        concat = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT).stdout
+        concat = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT,
+                                check=True).stdout
 
     else:
         cmd = [
@@ -69,12 +73,14 @@ def concatenate_ffmpeg(temp: Path, output: Path, encoder: str):
             output.as_posix()
         ]
 
-        concat = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT).stdout
+        concat = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT,
+                                check=True).stdout
 
     if len(concat) > 0:
         log(concat.decode())
         print(concat.decode())
-        raise Exception
+        tb = sys.exc_info()[2]
+        raise RuntimeError.with_traceback(tb)
 
 
 def concatenate_mkvmerge(temp: Path, output):
@@ -96,7 +102,6 @@ def concatenate_mkvmerge(temp: Path, output):
     encode_files = [shlex.quote(f.as_posix()) for f in encode_files]
 
     if platform.system() == "Linux":
-        import resource
         file_limit, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
         cmd_limit = os.sysconf(os.sysconf_names['SC_ARG_MAX'])
     else:
@@ -123,7 +128,8 @@ def concatenate_mkvmerge(temp: Path, output):
     if concat.returncode != 0:
         log(message)
         print(message)
-        raise Exception
+        tb = sys.exc_info()[2]
+        raise RuntimeError.with_traceback(tb)
 
     # remove temporary files used by recursive concat
     if os.path.exists("{}.tmp0.mkv".format(output)):
@@ -154,10 +160,10 @@ def _concatenate_mkvmerge(files, output, file_limit, cmd_limit, flip=False):
     if concat.returncode != 0:
         log(message)
         print(message)
-        raise Exception
+        tb = sys.exc_info()[2]
+        raise RuntimeError.with_traceback(tb)
 
     if len(remaining) > 0:
         return _concatenate_mkvmerge([tmp_out] + remaining, output, file_limit,
                                      cmd_limit, not flip)
-    else:
-        return tmp_out
+    return tmp_out

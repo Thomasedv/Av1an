@@ -5,15 +5,13 @@ import os
 import subprocess
 from pathlib import Path
 from subprocess import PIPE, STDOUT
-from typing import List
-
+from typing import List, Tuple
 from numpy import linspace
 
 from .logger import log
 from .project import Project
 from .scenedetection import aom_keyframes, AOM_KEYFRAMES_DEFAULT_PARAMS, pyscene, ffmpeg
 from .utils import terminate
-
 
 # TODO: organize to single segmenting/splitting module
 
@@ -80,7 +78,7 @@ def write_scenes_to_file(scenes: List[int], frames: int, scene_path: Path):
         json.dump(data, scene_file)
 
 
-def read_scenes_from_file(scene_path: Path) -> List[int]:
+def read_scenes_from_file(scene_path: Path) -> Tuple[int]:
     """
     Reads a list of split locations from a file
 

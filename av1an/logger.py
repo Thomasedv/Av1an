@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 
+# Todo: Add self testing on startup
 class Logger:
     def __init__(self):
         self.set_file = False

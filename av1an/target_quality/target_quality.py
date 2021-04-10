@@ -3,7 +3,6 @@ import subprocess
 from math import isnan
 import numpy as np
 import re
-import pprint
 from scipy import interpolate
 
 from av1an.vmaf import VMAF
@@ -49,14 +48,17 @@ class TargetQuality:
             chunk)
 
     def log_probes(
-            self,
-            vmaf_cq,
-            frames,
-            name,
-            skip=None,
-            q=None,
-            q_vmaf=None):
-        """Logs probes"""
+            self, vmaf_cq, frames, name, target_q, target_vmaf, skip=None):
+        """
+        Logs probes result
+           :type vmaf_cq: list probe measurements (q_vmaf, q)
+           :type frames: int frame count of chunk
+           :type name: str chunk name
+           :type skip: str None if normal results, else "high" or "low"
+           :type target_q: int Calculated q to be used
+        :type target_vmaf: float Calculated VMAF that would be achieved by using the q
+            :return: None
+        """
         if skip == 'high':
             sk = ' Early Skip High CQ'
         elif skip == 'low':
@@ -64,15 +66,16 @@ class TargetQuality:
         else:
             sk = ''
 
-        target_q = q if q else vmaf_cq[-1][1]
-        target_vmaf = q_vmaf if q_vmaf else round(vmaf_cq[-1][0], 2)
-
         log(f"Chunk: {name}, Rate: {self.probing_rate}, Fr: {frames}")
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
-        log(f"Target Q: {target_q} VMAF: {target_vmaf}")
+        log(f"Target Q: {target_q} VMAF: {round(target_vmaf, 2)}")
 
     def per_shot_target_quality(self, chunk: Chunk):
-        # Refactor this mess
+        """
+        :type: Chunk chunk to probe
+        :rtype: int q to use
+        """
+        # TODO: Refactor this mess
         vmaf_cq = []
         frames = chunk.frames
 
@@ -84,7 +87,6 @@ class TargetQuality:
             return self.fast_search(chunk)
 
         q_list = []
-        score = 0
 
         # Make middle probe
         middle_point = (self.min_q + self.max_q) // 2
@@ -112,11 +114,9 @@ class TargetQuality:
         score = VMAF.read_weighted_vmaf(self.vmaf_probe(chunk, next_q))
         vmaf_cq.append((score, next_q))
 
-        if next_q == self.min_q and score < self.target:
-            self.log_probes(vmaf_cq, frames, chunk.name, skip='low')
-            return next_q
-        elif next_q == self.max_q and score > self.target:
-            self.log_probes(vmaf_cq, frames, chunk.name, skip='high')
+        if (next_q == self.min_q and score < self.target) or (next_q == self.max_q and score > self.target):
+            self.log_probes(vmaf_cq, frames, chunk.name, next_q, score,
+                            skip='low' if score < self.target else 'high')
             return next_q
 
         # Set boundary
@@ -148,7 +148,7 @@ class TargetQuality:
                 vmaf_cq_upper = new_point
 
         q, q_vmaf = self.get_target_q(vmaf_cq, self.target)
-        self.log_probes(vmaf_cq, frames, chunk.name, q=q, q_vmaf=q_vmaf)
+        self.log_probes(vmaf_cq, frames, chunk.name, q, q_vmaf)
         # log(f'Scene_score {self.get_scene_scores(chunk, self.ffmpeg_pipe)}')
         # Plot Probes
         if self.make_plots and len(vmaf_cq) > 3:
@@ -189,6 +189,7 @@ class TargetQuality:
 
         # Single probe cq guess or exit to avoid divide by zero
         if self.probes == 1 or next_q == last_q:
+            self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target)
             return next_q
 
         # Second probe at guessed value
@@ -209,7 +210,7 @@ class TargetQuality:
         if self.max_q < next_q:
             next_q = self.max_q
 
-        self.log_probes(vmaf_cq, chunk.frames, chunk.name)
+        self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target)
 
         return next_q
 
@@ -361,7 +362,7 @@ class TargetQuality:
             params = [
                 'rav1e', '-y', '-s', '10', '--threads', f'{n_threads}',
                 '--tiles', '16', '--quantizer', f'{q}', '--low-latency',
-                '--rdo-lookahead-frames', '5'
+                '--rdo-lookahead-frames', '5', '--no-scene-detection'
             ]
             cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
@@ -417,7 +418,7 @@ class TargetQuality:
 
         if v1 > target and v2 > target:
             return min(q1, q2)
-        if v1 < target and v1 < target:
+        if v1 < target and v2 < target:
             return max(q1, q2)
 
         dif1 = abs(target - v2)
@@ -454,7 +455,8 @@ class TargetQuality:
 
     def get_scene_scores(self, chunk, ffmpeg_pipe):
         """
-        Run ffmpeg scenedetection filter to get average amount of motion in scene
+        Run ffmpeg scenedetection filter
+        Gets average amount of motion in scene
         """
 
         pipecmd = [
@@ -528,8 +530,8 @@ class TargetQuality:
         Makes graph with probe decisions
         """
         if plt is None:
-            log(f'Matplotlib is not installed or could not be loaded. Unable to plot probes.'
-                )
+            log('Matplotlib is not installed or could not be loaded\
+            . Unable to plot probes.')
             return
         # Saving plot of vmaf calculation
 
