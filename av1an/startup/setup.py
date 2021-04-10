@@ -31,7 +31,6 @@ def set_target_quality(project):
         print(
             'Target quality with less than 4 probes is experimental and not recommended'
         )
-        terminate()
 
     encoder = ENCODERS[project.encoder]
 

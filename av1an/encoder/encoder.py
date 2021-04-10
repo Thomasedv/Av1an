@@ -6,7 +6,7 @@ from subprocess import PIPE, STDOUT
 from av1an.project import Project
 from chunk import Chunk
 from av1an.commandtypes import Command, MPCommands
-
+import sys
 
 class Encoder(ABC):
     """

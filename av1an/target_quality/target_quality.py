@@ -54,7 +54,8 @@ class TargetQuality:
             frames,
             name,
             skip=None,
-    ):
+            q=None,
+            q_vmaf=None):
         """Logs probes"""
         if skip == 'high':
             sk = ' Early Skip High CQ'
@@ -63,9 +64,12 @@ class TargetQuality:
         else:
             sk = ''
 
+        target_q = q if q else vmaf_cq[-1][1]
+        target_vmaf = q_vmaf if q_vmaf else round(vmaf_cq[-1][0], 2)
+
         log(f"Chunk: {name}, Rate: {self.probing_rate}, Fr: {frames}")
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
-        log(f"Target Q: {vmaf_cq[-1][1]} VMAF: {round(vmaf_cq[-1][0], 2)}")
+        log(f"Target Q: {target_q} VMAF: {target_vmaf}")
 
     def per_shot_target_quality(self, chunk: Chunk):
         # Refactor this mess
@@ -144,8 +148,7 @@ class TargetQuality:
                 vmaf_cq_upper = new_point
 
         q, q_vmaf = self.get_target_q(vmaf_cq, self.target)
-        self.log_probes(vmaf_cq, frames, chunk.name)
-
+        self.log_probes(vmaf_cq, frames, chunk.name, q=q, q_vmaf=q_vmaf)
         # log(f'Scene_score {self.get_scene_scores(chunk, self.ffmpeg_pipe)}')
         # Plot Probes
         if self.make_plots and len(vmaf_cq) > 3:
@@ -342,7 +345,7 @@ class TargetQuality:
                 '--enable-rect-tx=0', '--enable-interintra-wedge=0',
                 '--enable-onesided-comp=0', '--enable-interintra-comp=0',
                 '--enable-global-motion=0', '--min-partition-size=32',
-                '--max-partition-size=32', r'--vmaf-model-path=F:\SystemFiles\Workspace\vmaf_v0.6.1.json'
+                '--max-partition-size=32', r'--vmaf-model-path=vmaf_v0.6.1.json'
             ]
             cmd = CommandPair(pipe, [*params, '-o', probe_name, '-'])
 
@@ -502,7 +505,7 @@ class TargetQuality:
             f'v_{q}{chunk.name}').with_suffix('.ivf')
 
     def make_pipes(self, ffmpeg_gen_cmd: Command, command: CommandPair):
-
+        import sys
         ffmpeg_gen_pipe = subprocess.Popen(ffmpeg_gen_cmd,
                                            stdout=subprocess.PIPE,
                                            stderr=subprocess.STDOUT)
