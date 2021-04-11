@@ -125,14 +125,14 @@ class EncodingManager:
     def done_file(self, project: Project, chunk_queue: List[Chunk]):
         done_path = project.temp / 'done.json'
         if project.resume and done_path.exists():
-            log('Resuming...')
+            log('Resuming...', include_caller=False)
             with open(done_path) as done_file:
                 data = json.load(done_file)
 
             project.set_frames(data['frames'])
             done = len(data['done'])
             self.initial_frames = sum(data['done'].values())
-            log(f'Resumed with {done} encoded clips done')
+            log(f'Resumed with {done} encoded clips done', include_caller=False)
         else:
             self.initial_frames = 0
             total = project.get_frames()

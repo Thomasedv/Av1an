@@ -1,5 +1,7 @@
 #!/bin/env python
 
+import inspect
+import logging
 import sys
 import time
 from pathlib import Path
@@ -8,25 +10,42 @@ from pathlib import Path
 # Todo: Add self testing on startup
 class Logger:
     def __init__(self):
-        self.set_file = False
-        self.buffer = ''
+        self.ready = False
+        self.buffer = []
+        self._logger = logging.getLogger('Av1an')
+        self._logger.setLevel(logging.DEBUG)
+
+        self._formatter = logging.Formatter('{message}', style="{")
 
     def set_path(self, file):
-        self.set_file = Path(file)
+        for handler in self._logger.handlers[:]:
+            handler.close()
+            self._logger.removeHandler(handler)
 
-    def log(self, *info):
-        """Default logging function, write to file."""
+        filehandler = logging.FileHandler(file, encoding='utf-8')
+        filehandler.setFormatter(self._formatter)
+        filehandler.setLevel(logging.DEBUG)
+        self._logger.addHandler(filehandler)
+        self.ready = True
+
+    def log(self, *info, include_caller=True):
+        cur_frame = inspect.currentframe()
+        cal_frame = inspect.getouterframes(cur_frame, 2)
+        parent_function = cal_frame[1][3]
+
         for i in info:
-            if self.set_file and self.buffer:
-                with open(self.set_file, 'a') as logf:
-                    logf.write(self.buffer)
-                    self.buffer = None
+            if not self.ready:
+                self.buffer.append((f'[{time.strftime("%X")}]', f'[{parent_function}]' * include_caller, i))
+                continue
 
-            if self.set_file:
-                with open(self.set_file, 'a') as logf:
-                    logf.write(f'[{time.strftime("%X")}] {i}\n')
+            if self.buffer:
+                for ts, pf, msg in self.buffer:
+                    self._logger.info(f'{ts} {pf} {msg}')
+                self.buffer.clear()
+            if include_caller:
+                self._logger.info(f'[{time.strftime("%X")}] [{parent_function}] {i}')
             else:
-                self.buffer += f'[{time.strftime("%X")}] {i}\n'
+                self._logger.info(f'[{time.strftime("%X")}] {i}')
 
 
 # Creating logger
@@ -47,6 +66,4 @@ def set_log(log_path: Path, temp):
     else:
         log_file(temp / 'log.log')
 
-    log(f"Av1an Started")
-    log(f"Command:")
-    log(f"{' '.join(sys.argv)}")
+    log(f"Av1an Started", f"Command:", f"{' '.join(sys.argv)}", include_caller=False)
