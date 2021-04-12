@@ -31,7 +31,7 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
     for u_pipe in utility:
         if u_pipe.poll() is None:
             u_pipe.kill()
-            log(f'[process_pipe] Killed unclosed utility pipe.')
+            log(f'Killed unclosed utility pipe.')
 
     if pipe.returncode != 0 and pipe.returncode != -2:
         if pipe.returncode == 3221225786:
@@ -81,7 +81,7 @@ def process_encoding_pipe(pipe, encoder, counter, chunk: Chunk, utility: Iterabl
     for u_pipe in utility:
         if u_pipe.poll() is None:
             u_pipe.kill()
-            log(f'[process_encoding_pipe] Killed unclosed utility pipe.')
+            log(f'Killed unclosed utility pipe.')
 
     if pipe.returncode != 0 and pipe.returncode != -2:  # -2 is Ctrl+C for aom
         if pipe.returncode == 3221225786:

@@ -485,7 +485,7 @@ class TargetQuality:
         for u_pipe in utility:
             if u_pipe.poll() is None:
                 u_pipe.kill()
-                log(f'[get_scene scores] Killed unclosed utility pipe.')
+                log(f'Killed unclosed utility pipe.')
 
         if pipe.returncode != 0 and pipe.returncode != -2:
             print(f"\n:: Error in getting scene score {pipe.returncode}")

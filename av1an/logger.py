@@ -42,6 +42,7 @@ class Logger:
                 for ts, pf, msg in self.buffer:
                     self._logger.info(f'{ts} {pf} {msg}')
                 self.buffer.clear()
+
             if include_caller:
                 self._logger.info(f'[{time.strftime("%X")}] [{parent_function}] {i}')
             else:
