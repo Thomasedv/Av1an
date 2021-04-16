@@ -29,8 +29,9 @@ class Logger:
         self.ready = True
 
     def unset_path(self):
-        for handler in self._logger.handlers:
+        for handler in self._logger.handlers[:]:
             handler.close()
+            self._logger.removeHandler(handler)
         self.ready = False
 
     def log(self, *info, include_caller=True):
