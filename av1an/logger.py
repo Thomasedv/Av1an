@@ -15,7 +15,7 @@ class Logger:
         self._logger = logging.getLogger('Av1an')
         self._logger.setLevel(logging.DEBUG)
 
-        self._formatter = logging.Formatter('{message}', style="{")
+        self._formatter = logging.Formatter('[{%X}][{func}]{message}', style="{")
 
     def set_path(self, file):
         for handler in self._logger.handlers[:]:
@@ -35,12 +35,12 @@ class Logger:
 
         for i in info:
             if not self.ready:
-                self.buffer.append((f'[{time.strftime("%X")}]', f'[{parent_function}]' * include_caller, i))
+                self.buffer.append(i)
                 continue
 
             if self.buffer:
-                for ts, pf, msg in self.buffer:
-                    self._logger.info(f'{ts} {pf} {msg}')
+                for msg in self.buffer:
+                    self._logger.info(msg)
                 self.buffer.clear()
 
             if include_caller:
