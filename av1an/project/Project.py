@@ -142,7 +142,7 @@ class Project(object):
             if self.output_file[-1] in ('\\', '/'):
                 self.output_file = Path(f"{self.output_file}{self.input.stem}_{self.encoder}{suffix}")
             else:
-                Path(f"{self.input.stem}_{self.encoder}{suffix}")
+                self.output_file = Path(f"{self.input.stem}_{self.encoder}{suffix}")
         else:
             self.output_file = Path(self.output_file).with_suffix(suffix)
 
@@ -202,6 +202,12 @@ class Project(object):
         """Creating temporally folders when needed."""
 
         if self.temp:
+            if self.temp[-1] in ('\\', '/'):
+                self.output_file = Path(f"{self.output_file}{self.input.stem}_{self.encoder}{suffix}")
+            else:
+                Path(f"{self.input.stem}_{self.encoder}{suffix}")
+
+
             self.temp = Path(str(self.temp))
         else:
             self.temp = Path("." + str(hash_path(str(self.input))))

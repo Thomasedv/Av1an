@@ -3,7 +3,6 @@
 import inspect
 import logging
 import sys
-import time
 from pathlib import Path
 
 
@@ -15,7 +14,7 @@ class Logger:
         self._logger = logging.getLogger('Av1an')
         self._logger.setLevel(logging.DEBUG)
 
-        self._formatter = logging.Formatter('[{%X}][{func}]{message}', style="{")
+        self._formatter = logging.Formatter('[{asctime}]{message}', style="{", datefmt="%X")
 
     def set_path(self, file):
         for handler in self._logger.handlers[:]:
@@ -29,10 +28,6 @@ class Logger:
         self.ready = True
 
     def log(self, *info, include_caller=True):
-        cur_frame = inspect.currentframe()
-        cal_frame = inspect.getouterframes(cur_frame, 2)
-        parent_function = cal_frame[1][3]
-
         for i in info:
             if not self.ready:
                 self.buffer.append(i)
@@ -44,9 +39,13 @@ class Logger:
                 self.buffer.clear()
 
             if include_caller:
-                self._logger.info(f'[{time.strftime("%X")}] [{parent_function}] {i}')
+                cur_frame = inspect.currentframe()
+                cal_frame = inspect.getouterframes(cur_frame, 2)
+                parent_function = cal_frame[1][3]
+
+                self._logger.info(f'[{parent_function}] {i}')
             else:
-                self._logger.info(f'[{time.strftime("%X")}] {i}')
+                self._logger.info(f' {i}')
 
 
 # Creating logger
