@@ -203,7 +203,7 @@ class Project(object):
 
         if self.temp:
             if self.temp[-1] in ('\\', '/'):
-                self.temp = Path(f"{self.temp}{str(hash_path(str(self.input)))}")
+                self.temp = Path(f"{self.temp}{'.' + str(hash_path(str(self.input)))}")
             else:
                 self.temp = Path(str(self.temp))
         else:
