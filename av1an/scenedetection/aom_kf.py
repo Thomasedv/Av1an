@@ -75,8 +75,8 @@ def get_second_ref_usage_thresh(frame_count_so_far):
         return min_second_ref_usage_thresh + second_ref_usage_thresh_max_delta
     return (
             min_second_ref_usage_thresh
-            + (frame_count_so_far /
-               (adapt_upto - 1)) * second_ref_usage_thresh_max_delta)
+            + (frame_count_so_far / (adapt_upto - 1)) * second_ref_usage_thresh_max_delta
+    )
 
 
 # I have no idea if the following function is necessary in the python implementation or what its purpose even is.
@@ -123,41 +123,30 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
     if (
             ((qmode == False) or (frame_count_so_far > 2))
             and (c["pcnt_second_ref"] < second_ref_usage_thresh)
+            and (f["pcnt_second_ref"] < second_ref_usage_thresh)
             and (
-            f["pcnt_second_ref"] < second_ref_usage_thresh) and (
-            (c["pcnt_inter"] < VERY_LOW_INTER_THRESH) or
-            (
-                    (pcnt_intra > MIN_INTRA_LEVEL) and
-                    (pcnt_intra > (INTRA_VS_INTER_THRESH * modified_pcnt_inter)) and
-                    (
+            (c["pcnt_inter"] < VERY_LOW_INTER_THRESH)
+            or (
+                    (pcnt_intra > MIN_INTRA_LEVEL)
+                    and (pcnt_intra > (INTRA_VS_INTER_THRESH * modified_pcnt_inter))
+                    and (
                             (c["intra_error"] / DOUBLE_DIVIDE_CHECK(c["coded_error"]))
                             < KF_II_ERR_THRESHOLD
                     )
                     and (
                             (
-                                    abs(
-                                        p["coded_error"] - c["coded_error"])
+                                    abs(p["coded_error"] - c["coded_error"])
                                     / DOUBLE_DIVIDE_CHECK(c["coded_error"])
                                     > ERR_CHANGE_THRESHOLD
                             )
                             or (
-
-                             abs(p[
-                                     "intra_error"] -
-                                 c[
-                                     "intra_error"])
-                             / DOUBLE_DIVIDE_CHECK(
-                                                                                                           c[
-                                                                                                               "intra_error"])
-                             > ERR_CHANGE_THRESHOLD
+                                    abs(p["intra_error"] - c["intra_error"])
+                                    / DOUBLE_DIVIDE_CHECK(c["intra_error"])
+                                    > ERR_CHANGE_THRESHOLD
                             )
                             or (
-                     (
-                             f[
-                                 "intra_error"] / DOUBLE_DIVIDE_CHECK(
-                         f[
-                             "coded_error"]))
-                     > II_IMPROVEMENT_THRESHOLD
+                                    (f["intra_error"] / DOUBLE_DIVIDE_CHECK(f["coded_error"]))
+                                    > II_IMPROVEMENT_THRESHOLD
                             )
                     )
             )
@@ -189,10 +178,14 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
 
             # Test various breakout clauses.
             if (
-                    (lnf["pcnt_inter"] < 0.05) or (next_iiratio < 1.5) or (
+                    (lnf["pcnt_inter"] < 0.05)
+                    or (next_iiratio < 1.5)
+                    or (
                     ((lnf["pcnt_inter"] - lnf["pcnt_neutral"]) < 0.20)
-                                                                      and (next_iiratio < 3.0)) or (
-                    (boost_score - old_boost_score) < 3.0) or (lnf["intra_error"] < 200)
+                    and (next_iiratio < 3.0)
+            )
+                    or ((boost_score - old_boost_score) < 3.0)
+                    or (lnf["intra_error"] < 200)
             ):
                 break
             old_boost_score = boost_score
@@ -242,7 +235,6 @@ def compose_aomsplit_first_pass_command(
 ) -> CommandPair:
     """
     Generates the command for the first pass of the entire video used for aom keyframe split
-
     :param video_path: the video path
     :param stat_file: the stat_file output
     :param ffmpeg_pipe: the av1an.ffmpeg_pipe with pix_fmt and -ff option
@@ -280,7 +272,8 @@ def compose_aomsplit_first_pass_command(
         "--pass=1",
         *video_params.split(),
         f"--fpf={stat_file.as_posix()}",
-        "-o", os.devnull,
+        "-o",
+        os.devnull,
         "-",
     ]
     return CommandPair(f, e)
