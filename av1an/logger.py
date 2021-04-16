@@ -28,7 +28,7 @@ class Logger:
         self._logger.addHandler(filehandler)
         self.ready = True
 
-    def close(self):
+    def unset_path(self):
         for handler in self._logger.handlers:
             handler.close()
         self.ready = False
@@ -62,7 +62,7 @@ log = logger.log
 
 def unset_log():
     global logger
-    logger.close()
+    logger.unset_path()
 
 
 def set_log(log_path: Path, temp):
