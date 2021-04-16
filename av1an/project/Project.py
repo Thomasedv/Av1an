@@ -203,12 +203,9 @@ class Project(object):
 
         if self.temp:
             if self.temp[-1] in ('\\', '/'):
-                self.output_file = Path(f"{self.output_file}{self.input.stem}_{self.encoder}{suffix}")
+                self.temp = Path(f"{self.temp}{str(hash_path(str(self.input)))}")
             else:
-                Path(f"{self.input.stem}_{self.encoder}{suffix}")
-
-
-            self.temp = Path(str(self.temp))
+                self.temp = Path(str(self.temp))
         else:
             self.temp = Path("." + str(hash_path(str(self.input))))
 
