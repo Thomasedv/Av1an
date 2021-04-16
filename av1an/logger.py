@@ -60,11 +60,11 @@ def set_log(log_path: Path, temp):
 
     if log_path:
         log_path = Path(log_path)
-        if log_path.suffix == '':
-            log_path = log_path.with_suffix('.log')
+        if log_path.suffix == "":
+            log_path = log_path.with_suffix(".log")
         log_file(log_path)
 
     else:
-        log_file(temp / 'log.log')
+        log_file(temp / "log.log")
 
     log(f"Av1an Started", f"Command:", f"{' '.join(sys.argv)}", include_caller=False)

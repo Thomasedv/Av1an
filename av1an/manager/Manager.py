@@ -59,9 +59,9 @@ class Main:
                     print(f":: Encoding file {proj.input.name}")
                 EncodingManager().encode_file(proj)
 
-                print(f'Finished: {round(time.time() - tm, 1)}s\n')
+                print(f"Finished: {round(time.time() - tm, 1)}s\n")
             except KeyboardInterrupt:
-                print(' \nEncoding stopped')
+                print("Encoding stopped")
                 sys.exit()
 
 
@@ -86,8 +86,7 @@ class EncodingManager:
         split_locations = split_routine(project, project.resume)
 
         # create a chunk queue
-        chunk_queue = load_or_gen_chunk_queue(project, project.resume,
-                                              split_locations)
+        chunk_queue = load_or_gen_chunk_queue(project, project.resume, split_locations)
 
         self.done_file(project, chunk_queue)
         if not project.resume:
@@ -102,9 +101,9 @@ class EncodingManager:
         queue = Queue(project, chunk_queue)
         queue.encoding_loop()
 
-        if queue.status.lower() == 'fatal':
-            msg = 'FATAL Encoding process encountered fatal error, shutting down'
-            print('\n::', msg)
+        if queue.status.lower() == "fatal":
+            msg = "FATAL Encoding process encountered fatal error, shutting down"
+            print("\n::", msg)
             log(msg)
             sys.exit(1)
 
@@ -112,10 +111,12 @@ class EncodingManager:
         project.concat_routine()
 
         if project.vmaf or project.vmaf_plots:
-            self.vmaf = VMAF(n_threads=project.n_threads,
-                             model=project.vmaf_path,
-                             res=project.vmaf_res,
-                             vmaf_filter=project.vmaf_filter)
+            self.vmaf = VMAF(
+                n_threads=project.n_threads,
+                model=project.vmaf_path,
+                res=project.vmaf_res,
+                vmaf_filter=project.vmaf_filter,
+            )
             self.vmaf.plot_vmaf(project.input, project.output_file, project)
 
         # Delete temp folders
@@ -123,29 +124,31 @@ class EncodingManager:
             shutil.rmtree(project.temp)
 
     def done_file(self, project: Project, chunk_queue: List[Chunk]):
-        done_path = project.temp / 'done.json'
+        done_path = project.temp / "done.json"
         if project.resume and done_path.exists():
-            log('Resuming...', include_caller=False)
+            log("Resuming...")
             with open(done_path) as done_file:
                 data = json.load(done_file)
 
-            project.set_frames(data['frames'])
-            done = len(data['done'])
-            self.initial_frames = sum(data['done'].values())
-            log(f'Resumed with {done} encoded clips done', include_caller=False)
+            project.set_frames(data["frames"])
+            done = len(data["done"])
+            self.initial_frames = sum(data["done"].values())
+            log(f"Resumed with {done} encoded clips done")
         else:
             self.initial_frames = 0
             total = project.get_frames()
-            d = {'frames': total, 'done': {}}
-            with open(done_path, 'w') as done_file:
+            d = {"frames": total, "done": {}}
+            with open(done_path, "w") as done_file:
                 json.dump(d, done_file)
 
     def startup(self, project: Project, chunk_queue: List[Chunk]):
         clips = len(chunk_queue)
         project.workers = min(project.workers, clips)
-        print(f'\rQueue: {clips} Workers: {project.workers} Passes: {project.passes}\n'
-              f'Params: {" ".join(project.video_params)}')
-        BaseManager.register('Counter', Counter)
-        counter = Manager().Counter(project.get_frames(), self.initial_frames,
-                                    not project.quiet)
+        print(f"\rQueue: {clips} Workers: {project.workers} Passes: {project.passes}\n"
+              f'Params: {" ".join(project.video_params)}'
+              )
+        BaseManager.register("Counter", Counter)
+        counter = Manager().Counter(
+            project.get_frames(), self.initial_frames, not project.quiet
+        )
         project.counter = counter
