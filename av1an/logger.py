@@ -11,7 +11,8 @@ class Logger:
     def __init__(self):
         self.ready = False
         self.buffer = []
-        self._logger = logging.getLogger('Av1an')
+        self._logger: logging.Logger = logging.getLogger('Av1an')
+
         self._logger.setLevel(logging.DEBUG)
 
         self._formatter = logging.Formatter('[{asctime}]{message}', style="{", datefmt="%X")
@@ -26,6 +27,11 @@ class Logger:
         filehandler.setLevel(logging.DEBUG)
         self._logger.addHandler(filehandler)
         self.ready = True
+
+    def close(self):
+        for handler in self._logger.handlers:
+            handler.close()
+        self.ready = False
 
     def log(self, *info, include_caller=True):
         for i in info:
@@ -52,6 +58,11 @@ class Logger:
 logger = Logger()
 log_file = logger.set_path
 log = logger.log
+
+
+def unset_log():
+    global logger
+    logger.close()
 
 
 def set_log(log_path: Path, temp):

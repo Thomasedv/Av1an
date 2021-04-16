@@ -140,6 +140,7 @@ class Project(object):
         # Check for non-empty string
         if isinstance(self.output_file, str) and self.output_file:
             if self.output_file[-1] in ('\\', '/'):
+
                 self.output_file = Path(f"{self.output_file}{self.input.stem}_{self.encoder}{suffix}")
             else:
                 self.output_file = Path(self.output_file).with_suffix(suffix)

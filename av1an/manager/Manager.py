@@ -9,7 +9,7 @@ from av1an.chunk import Chunk
 from av1an.chunk.chunk_queue import load_or_gen_chunk_queue
 from av1an.ffmpeg import extract_audio
 from av1an.fp_reuse import segment_first_pass
-from av1an.logger import log, set_log
+from av1an.logger import log, set_log, unset_log
 from av1an.project.Project import Project
 from av1an.split import split_routine
 from av1an.startup.file_validation import process_inputs
@@ -120,6 +120,7 @@ class EncodingManager:
             self.vmaf.plot_vmaf(project.input, project.output_file, project)
 
         # Delete temp folders
+        unset_log()
         if not project.keep:
             shutil.rmtree(project.temp)
 
