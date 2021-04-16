@@ -178,11 +178,10 @@ def _concatenate_mkvmerge(files, output, file_limit, cmd_limit, flip=False):
     remaining = []
     for i, file in enumerate(files[1:]):
         new_cmd = cmd + ["+{}".format(file)]
-        if sum(len(s) for s in new_cmd) < cmd_limit
-                and (file_limit == -1 or i < max(1, file_limit - 10)):
+        if sum(len(s) for s in new_cmd) < cmd_limit and (file_limit == -1 or i < max(1, file_limit - 10)):
             cmd = new_cmd
         else:
-        remaining = files[i + 1:]
+            remaining = files[i + 1:]
             break
 
     concat = subprocess.Popen(cmd, stdout=PIPE, universal_newlines=True)
