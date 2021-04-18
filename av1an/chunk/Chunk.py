@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 from av1an.commandtypes import Command
 
@@ -18,6 +18,7 @@ class Chunk:
             output_ext: str,
             size: int,
             frames: int,
+            boundaries: Tuple[int]
     ):
         """
         Chunk class constructor
@@ -40,6 +41,8 @@ class Chunk:
         self.per_shot_target_quality_cq = None
         self.per_frame_target_quality_q_list = None
         self.cancel = False
+        self.probing_rate = None
+        self.boundaries = boundaries
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -54,6 +57,7 @@ class Chunk:
             "frames": self.frames,
             "output_ext": self.output_ext,
             "per_shot_target_quality_cq": self.per_shot_target_quality_cq,
+            "boundaries": self.boundaries,
         }
 
     @property
@@ -125,6 +129,7 @@ class Chunk:
             d["output_ext"],
             d["size"],
             d["frames"],
+            d["boundaries"],
         )
         chunk.per_shot_target_quality_cq = d["per_shot_target_quality_cq"]
         return chunk

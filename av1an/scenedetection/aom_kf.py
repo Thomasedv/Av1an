@@ -232,6 +232,90 @@ def find_aom_keyframes(stat_file, key_freq_min):
     return keyframes_list
 
 
+def detect_motion(stat_file, frame_start, frame_end):
+    keyframes_list = []
+
+    number_of_frames = round(os.stat(stat_file).st_size / 208) - 1
+    frame_end = min(frame_end, number_of_frames)
+    dict_list = []
+    try:
+        with open(stat_file, "rb") as file:
+            frame_buf = file.read(208)
+            while len(frame_buf) > 0:
+                stats = struct.unpack("d" * 26, frame_buf)
+                p = dict(zip(fields, stats))
+                dict_list.append(p)
+                frame_buf = file.read(208)
+    except Exception as e:
+        print("Get exception:", e)
+        print("Recomended to switch to different method of scenedetection")
+        terminate()
+
+    # intentionally skipping 0th frame and last 16 frames
+    frame_count_so_far = 1
+    subsample = 4
+    suggested_subsample = 4
+    for i in range(frame_start, frame_end-subsample, subsample):
+        # previous_frame_dict = dict_list[i - 1]
+        current_frame_dict = dict_list[i]
+        # future_frame_dict = dict_list[i + 1]
+        # p = previous_frame_dict
+        abs_mv_row = 0
+        abs_mv_col = 0
+        for step in range(4):
+            c = dict_list[i+step]
+            abs_mv_row += c['mvr_abs']
+            abs_mv_col += c['mvc_abs']
+
+        if abs_mv_col > 1500 or abs_mv_row > 1500:
+            suggested_subsample = 2
+
+
+        # f = future_frame_dict
+        # fields = [
+        #     "frame",
+        #     "weight",
+        #     "intra_error",
+        #     "frame_avg_wavelet_energy",
+        #     "coded_error",
+        #     "sr_coded_error",
+        #     "tr_coded_error",
+        #     "pcnt_inter",
+        #     "pcnt_motion",
+        #     "pcnt_second_ref",
+        #     "pcnt_third_ref",
+        #     "pcnt_neutral",
+        #     "intra_skip_pct",
+        #     "inactive_zone_rows",
+        #     "inactive_zone_cols",
+        #     "MVr",
+        #     "mvr_abs",
+        #     "MVc",
+        #     "mvc_abs",
+        #     "MVrv",
+        #     "MVcv",
+        #     "mv_in_out_count",
+        #     "new_mv_count",
+        #     "duration",
+        #     "count",
+        #     "raw_error_stdev",
+        # ]
+        print(f" Frame {int(c['frame']):4d} Motion: {c['pcnt_motion']:6.3f} | Inter: {c['pcnt_inter']:6.3f} | Neutral: {c['pcnt_neutral']:6.3f} | "
+              f"MVr {c['MVr']:8.2f} | MVc {c['MVc']:8.2f} | MVrv {c['MVrv']/100:8.2f} | MVcv {c['MVcv']/100:8.2f} | "
+              f"mvr_abs {c['mvr_abs']:8.2f} | mvc_abs {c['mvc_abs']:8.2f}")
+
+        # is_keyframe = False
+        # https://aomedia.googlesource.com/aom/+/ce97de2724d7ffdfdbe986a14d49366936187298/av1/encoder/pass2_strategy.c#2065
+        # if frame_count_so_far >= key_freq_min:
+        #     is_keyframe = test_candidate_kf(dict_list, i, frame_count_so_far)
+        # if is_keyframe:
+        #     keyframes_list.append(i)
+        #     frame_count_so_far = 0
+        # frame_count_so_far += 1
+
+    return suggested_subsample
+
+
 def compose_aomsplit_first_pass_command(
     video_path: Path, stat_file: Path, ffmpeg_pipe, video_params, is_vs
 ) -> CommandPair:
@@ -353,5 +437,4 @@ def aom_keyframes(
     min_scene_len = 0 if min_scene_len is None else min_scene_len
 
     keyframes = find_aom_keyframes(stat_file, min_scene_len)
-
     return keyframes

@@ -9,6 +9,7 @@ from av1an.chunk import Chunk
 from av1an.commandtypes import CommandPair, Command
 from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
+from av1an.scenedetection.aom_kf import detect_motion
 from av1an.vmaf import VMAF
 
 try:
@@ -28,7 +29,7 @@ class TargetQuality:
             vmaf_filter=project.vmaf_filter,
         )
         self.n_threads = project.n_threads
-        self.probing_rate = project.probing_rate
+        # self .probing_rate = project.probing_rate
         self.probes = project.probes
         self.target = project.target_quality
         self.min_q = project.min_q
@@ -37,6 +38,7 @@ class TargetQuality:
         self.encoder = project.encoder
         self.ffmpeg_pipe = project.ffmpeg_pipe
         self.temp = project.temp
+        self.project = project
 
     def per_frame_target_quality_routine(self, chunk: Chunk):
         """
@@ -50,7 +52,7 @@ class TargetQuality:
         chunk.per_frame_target_quality_q_list = self.per_frame_target_quality(chunk)
 
     def log_probes(
-            self, vmaf_cq, frames, name, target_q, target_vmaf, skip=None):
+            self, vmaf_cq, frames, name, target_q, target_vmaf, probing_rate, skip=None):
         """
         Logs probes result
            :type vmaf_cq: list probe measurements (q_vmaf, q)
@@ -68,7 +70,7 @@ class TargetQuality:
         else:
             sk = ""
 
-        log(f"Chunk: {name}, Rate: {self.probing_rate}, Fr: {frames}")
+        log(f"Chunk: {name}, Rate: {probing_rate}, Fr: {frames}")
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
         log(f"Target Q: {target_q} VMAF: {round(target_vmaf, 2)}")
 
@@ -81,8 +83,11 @@ class TargetQuality:
         vmaf_cq = []
         frames = chunk.frames
 
-        if self.probing_rate not in (1, 2):
-            self.probing_rate = self.adapt_probing_rate(self.probing_rate, frames)
+        chunk.probing_rate = self.project.probing_rate
+        if self.project.split_method == "aom_keyframes" and chunk.boundaries is not None:
+            stat_file = self.project.temp / "keyframes.log"
+            chunk.probing_rate = detect_motion(stat_file, *chunk.boundaries)
+            log(f'Set probing_rate to {chunk.probing_rate} for chunk {chunk.index}')
 
         if self.probes < 3:
             return self.fast_search(chunk)
@@ -124,6 +129,7 @@ class TargetQuality:
                 chunk.name,
                 next_q,
                 score,
+                chunk.probing_rate,
                 skip="low" if score < self.target else "high",
             )
             return next_q
@@ -157,7 +163,7 @@ class TargetQuality:
                 vmaf_cq_upper = new_point
 
         q, q_vmaf = self.get_target_q(vmaf_cq, self.target)
-        self.log_probes(vmaf_cq, frames, chunk.name, q, q_vmaf)
+        self.log_probes(vmaf_cq, frames, chunk.name, q, q_vmaf, chunk.probing_rate)
         # log(f'Scene_score {self.get_scene_scores(chunk, self.ffmpeg_pipe)}')
         # Plot Probes
         if self.make_plots and len(vmaf_cq) > 3:
@@ -202,7 +208,7 @@ class TargetQuality:
 
         # Single probe cq guess or exit to avoid divide by zero
         if self.probes == 1 or next_q == last_q:
-            self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target)
+            self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target, chunk.probing_rate)
             return next_q
 
         # Second probe at guessed value
@@ -228,7 +234,7 @@ class TargetQuality:
         if self.max_q < next_q:
             next_q = self.max_q
 
-        self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target)
+        self.log_probes(vmaf_cq, chunk.frames, chunk.name, next_q, self.target, chunk.probing_rate)
 
         return next_q
 
@@ -308,12 +314,12 @@ class TargetQuality:
 
         n_threads = self.n_threads if self.n_threads else 12
         cmd = self.probe_cmd(
-            chunk, q, self.ffmpeg_pipe, self.encoder, self.probing_rate, n_threads
+            chunk, q, self.ffmpeg_pipe, self.encoder, chunk.probing_rate, n_threads
         )
         pipe, utility = self.make_pipes(chunk.ffmpeg_gen_cmd, cmd)
         process_pipe(pipe, chunk, utility)
         fl = self.vmaf_runner.call_vmaf(
-            chunk, self.gen_probes_names(chunk, q), vmaf_rate=self.probing_rate
+            chunk, self.gen_probes_names(chunk, q), vmaf_rate=chunk.probing_rate
         )
         return fl
 
@@ -392,7 +398,7 @@ class TargetQuality:
                 "--enable-global-motion=0",
                 "--min-partition-size=32",
                 "--max-partition-size=32",
-                "--vmaf-model-path=vmaf_v0.6.1.json",
+                # "--vmaf-model-path=vmaf_v0.6.1.json",
             ]
             cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
 

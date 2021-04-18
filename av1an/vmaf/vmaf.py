@@ -305,7 +305,7 @@ class VMAF:
             "-",
         ]
 
-        input_chunk = Chunk(args.temp, 0, ffmpeg_gen_cmd, "", 0, 0)
+        input_chunk = Chunk(args.temp, 0, ffmpeg_gen_cmd, "", 0, 0, None)
 
         scores = self.call_vmaf(input_chunk, encoded, 0, fl_path=fl_path)
 

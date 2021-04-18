@@ -201,7 +201,7 @@ def create_vs_chunk(
     extension = ENCODERS[project.encoder].output_extension
     size = frames  # use the number of frames to prioritize which chunks encode first, since we don't have file size
 
-    chunk = Chunk(project.temp, index, vspipe_gen_cmd, extension, size, frames)
+    chunk = Chunk(project.temp, index, vspipe_gen_cmd, extension, size, frames, (frame_start, frame_end))
 
     return chunk
 
@@ -269,7 +269,7 @@ def create_select_chunk(
     extension = ENCODERS[project.encoder].output_extension
     size = frames  # use the number of frames to prioritize which chunks encode first, since we don't have file size
 
-    chunk = Chunk(project.temp, index, ffmpeg_gen_cmd, extension, size, frames)
+    chunk = Chunk(project.temp, index, ffmpeg_gen_cmd, extension, size, frames, (frame_start, frame_end))
 
     return chunk
 
@@ -335,6 +335,6 @@ def create_chunk_from_segment(project: Project, index: int, file: Path) -> Chunk
     frames = project.get_frames()
     extension = ENCODERS[project.encoder].output_extension
 
-    chunk = Chunk(project.temp, index, ffmpeg_gen_cmd, extension, file_size, frames)
+    chunk = Chunk(project.temp, index, ffmpeg_gen_cmd, extension, file_size, frames, None)
 
     return chunk
