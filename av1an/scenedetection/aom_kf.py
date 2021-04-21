@@ -201,20 +201,24 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
 def find_aom_keyframes(stat_file, key_freq_min):
     keyframes_list = []
 
-    number_of_frames = round(os.stat(stat_file).st_size / 208) - 1
+    number_of_frames = round(os.stat(stat_file).st_size / 232) - 1
     dict_list = []
     try:
         with open(stat_file, "rb") as file:
-            frame_buf = file.read(208)
+            frame_buf = file.read(232)
             while len(frame_buf) > 0:
-                stats = struct.unpack("d" * 26, frame_buf)
+                stats = struct.unpack("d" * 29, frame_buf)
                 p = dict(zip(fields, stats))
+
                 dict_list.append(p)
-                frame_buf = file.read(208)
+                frame_buf = file.read(232)
     except Exception as e:
         print("Get exception:", e)
+        import traceback
+        traceback.print_exc()
         print("Recomended to switch to different method of scenedetection")
         terminate()
+
 
     # intentionally skipping 0th frame and last 16 frames
     frame_count_so_far = 1
@@ -230,6 +234,66 @@ def find_aom_keyframes(stat_file, key_freq_min):
         frame_count_so_far += 1
 
     return keyframes_list
+
+
+def get_chunk_info(stat_file, frame_start, frame_end):
+    keyframes_list = []
+
+    number_of_frames = round(os.stat(stat_file).st_size / 208) - 1
+    frame_end = min(frame_end, number_of_frames)
+    dict_list = []
+    try:
+        with open(stat_file, "rb") as file:
+            frame_buf = file.read(208)
+            while len(frame_buf) > 0:
+                stats = struct.unpack("d" * 29, frame_buf)
+                p = dict(zip(fields, stats))
+                dict_list.append(p)
+                frame_buf = file.read(208)
+    except Exception as e:
+        print("Get exception:", e)
+        print("Recomended to switch to different method of scenedetection")
+        terminate()
+
+    # intentionally skipping 0th frame and last 16 frames
+    frame_count_so_far = 1
+    subsample = 4
+    suggested_subsample = 4
+    abs_mv_row = deque(maxlen=4)
+    abs_mv_col = deque(maxlen=4)
+
+    max_mv_r = 0
+    max_mv_c = 0
+    max_interval_r = 0
+    max_interval_c = 0
+    average_r = 0
+    average_c = 0
+    frames = 0
+    for i in range(frame_start, frame_end):
+        frames += 1
+        c = dict_list[i]
+        abs_mv_row.append(c['mvr_abs'])
+        abs_mv_col.append(c['mvc_abs'])
+
+        mv_interval_r = sum(abs_mv_row)
+        mv_interval_c = sum(abs_mv_col)
+
+        max_mv_r = max(max_mv_r, c['mvr_abs'])
+        max_mv_c = max(max_mv_c, c['mvc_abs'])
+        max_interval_r = max(max_interval_r, mv_interval_r)
+        max_interval_c = max(max_interval_c, mv_interval_c)
+        average_r += c['mvr_abs']
+        average_c += c['mvc_abs']
+    stats = dict(
+        max_mv_r=max_mv_r,
+        max_mv_c=max_mv_c,
+        max_interval_r=max_interval_r,
+        max_interval_c=max_interval_c,
+        average_r=average_r / frames,
+        average_c=average_c / frames,
+    )
+
+    return stats
 
 
 def detect_motion(stat_file, frame_start, frame_end):
@@ -255,21 +319,21 @@ def detect_motion(stat_file, frame_start, frame_end):
     frame_count_so_far = 1
     subsample = 4
     suggested_subsample = 4
-    for i in range(frame_start, frame_end-subsample, subsample):
-        # previous_frame_dict = dict_list[i - 1]
-        current_frame_dict = dict_list[i]
-        # future_frame_dict = dict_list[i + 1]
-        # p = previous_frame_dict
-        abs_mv_row = 0
-        abs_mv_col = 0
-        for step in range(4):
-            c = dict_list[i+step]
-            abs_mv_row += c['mvr_abs']
-            abs_mv_col += c['mvc_abs']
+    abs_mv_row = deque(maxlen=4)
+    abs_mv_col = deque(maxlen=4)
 
-        if abs_mv_col > 1500 or abs_mv_row > 1500:
-            suggested_subsample = 2
+    for i in range(frame_start, frame_end):
+        c = dict_list[i]
+        abs_mv_row.append(c['mvr_abs'])
+        abs_mv_col.append(c['mvc_abs'])
 
+        if sum(abs_mv_col) > 1800 or sum(abs_mv_row) > 1650:
+            suggested_subsample = min(suggested_subsample, 3)
+        if sum(abs_mv_col) > 2100 or sum(abs_mv_row) > 1900:
+            suggested_subsample = min(suggested_subsample, 2)
+        if sum(abs_mv_col) > 3000 or sum(abs_mv_row) > 2800:
+            suggested_subsample = 1
+            break
 
         # f = future_frame_dict
         # fields = [
@@ -300,9 +364,9 @@ def detect_motion(stat_file, frame_start, frame_end):
         #     "count",
         #     "raw_error_stdev",
         # ]
-        print(f" Frame {int(c['frame']):4d} Motion: {c['pcnt_motion']:6.3f} | Inter: {c['pcnt_inter']:6.3f} | Neutral: {c['pcnt_neutral']:6.3f} | "
-              f"MVr {c['MVr']:8.2f} | MVc {c['MVc']:8.2f} | MVrv {c['MVrv']/100:8.2f} | MVcv {c['MVcv']/100:8.2f} | "
-              f"mvr_abs {c['mvr_abs']:8.2f} | mvc_abs {c['mvc_abs']:8.2f}")
+        # print(f" Frame {int(c['frame']):4d} Motion: {c['pcnt_motion']:6.3f} | Inter: {c['pcnt_inter']:6.3f} | Neutral: {c['pcnt_neutral']:6.3f} | "
+        #       f"MVr {c['MVr']:8.2f} | MVc {c['MVc']:8.2f} | MVrv {c['MVrv']/100:8.2f} | MVcv {c['MVcv']/100:8.2f} | "
+        #       f"mvr_abs {c['mvr_abs']:8.2f} | mvc_abs {c['mvc_abs']:8.2f}")
 
         # is_keyframe = False
         # https://aomedia.googlesource.com/aom/+/ce97de2724d7ffdfdbe986a14d49366936187298/av1/encoder/pass2_strategy.c#2065
