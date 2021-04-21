@@ -80,8 +80,8 @@ def get_second_ref_usage_thresh(frame_count_so_far):
     if frame_count_so_far >= adapt_upto:
         return min_second_ref_usage_thresh + second_ref_usage_thresh_max_delta
     return (
-        min_second_ref_usage_thresh
-        + (frame_count_so_far / (adapt_upto - 1)) * second_ref_usage_thresh_max_delta
+            min_second_ref_usage_thresh
+            + (frame_count_so_far / (adapt_upto - 1)) * second_ref_usage_thresh_max_delta
     )
 
 
@@ -127,36 +127,36 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
     second_ref_usage_thresh = get_second_ref_usage_thresh(frame_count_so_far)
 
     if (
-        ((qmode == False) or (frame_count_so_far > 2))
-        and (c["pcnt_second_ref"] < second_ref_usage_thresh)
-        and (f["pcnt_second_ref"] < second_ref_usage_thresh)
-        and (
+            ((qmode == False) or (frame_count_so_far > 2))
+            and (c["pcnt_second_ref"] < second_ref_usage_thresh)
+            and (f["pcnt_second_ref"] < second_ref_usage_thresh)
+            and (
             (c["pcnt_inter"] < VERY_LOW_INTER_THRESH)
             or (
-                (pcnt_intra > MIN_INTRA_LEVEL)
-                and (pcnt_intra > (INTRA_VS_INTER_THRESH * modified_pcnt_inter))
-                and (
-                    (c["intra_error"] / DOUBLE_DIVIDE_CHECK(c["coded_error"]))
-                    < KF_II_ERR_THRESHOLD
-                )
-                and (
-                    (
-                        abs(p["coded_error"] - c["coded_error"])
-                        / DOUBLE_DIVIDE_CHECK(c["coded_error"])
-                        > ERR_CHANGE_THRESHOLD
+                    (pcnt_intra > MIN_INTRA_LEVEL)
+                    and (pcnt_intra > (INTRA_VS_INTER_THRESH * modified_pcnt_inter))
+                    and (
+                            (c["intra_error"] / DOUBLE_DIVIDE_CHECK(c["coded_error"]))
+                            < KF_II_ERR_THRESHOLD
                     )
-                    or (
-                        abs(p["intra_error"] - c["intra_error"])
-                        / DOUBLE_DIVIDE_CHECK(c["intra_error"])
-                        > ERR_CHANGE_THRESHOLD
+                    and (
+                            (
+                                    abs(p["coded_error"] - c["coded_error"])
+                                    / DOUBLE_DIVIDE_CHECK(c["coded_error"])
+                                    > ERR_CHANGE_THRESHOLD
+                            )
+                            or (
+                                    abs(p["intra_error"] - c["intra_error"])
+                                    / DOUBLE_DIVIDE_CHECK(c["intra_error"])
+                                    > ERR_CHANGE_THRESHOLD
+                            )
+                            or (
+                                    (f["intra_error"] / DOUBLE_DIVIDE_CHECK(f["coded_error"]))
+                                    > II_IMPROVEMENT_THRESHOLD
+                            )
                     )
-                    or (
-                        (f["intra_error"] / DOUBLE_DIVIDE_CHECK(f["coded_error"]))
-                        > II_IMPROVEMENT_THRESHOLD
-                    )
-                )
             )
-        )
+    )
     ):
         boost_score = 0.0
         old_boost_score = 0.0
@@ -164,9 +164,9 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
         for i in range(0, 16):
             lnf = dict_list[current_frame_index + 1 + i]
             next_iiratio = (
-                BOOST_FACTOR
-                * lnf["intra_error"]
-                / DOUBLE_DIVIDE_CHECK(lnf["coded_error"])
+                    BOOST_FACTOR
+                    * lnf["intra_error"]
+                    / DOUBLE_DIVIDE_CHECK(lnf["coded_error"])
             )
             if next_iiratio > KF_II_MAX:
                 next_iiratio = KF_II_MAX
@@ -176,7 +176,7 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
                 decay_accumulator = decay_accumulator * lnf["pcnt_inter"]
             else:
                 decay_accumulator = decay_accumulator * (
-                    (0.85 + lnf["pcnt_inter"]) / 2.0
+                        (0.85 + lnf["pcnt_inter"]) / 2.0
                 )
 
             # Keep a running total.
@@ -184,14 +184,14 @@ def test_candidate_kf(dict_list, current_frame_index, frame_count_so_far):
 
             # Test various breakout clauses.
             if (
-                (lnf["pcnt_inter"] < 0.05)
-                or (next_iiratio < 1.5)
-                or (
+                    (lnf["pcnt_inter"] < 0.05)
+                    or (next_iiratio < 1.5)
+                    or (
                     ((lnf["pcnt_inter"] - lnf["pcnt_neutral"]) < 0.20)
                     and (next_iiratio < 3.0)
-                )
-                or ((boost_score - old_boost_score) < 3.0)
-                or (lnf["intra_error"] < 200)
+            )
+                    or ((boost_score - old_boost_score) < 3.0)
+                    or (lnf["intra_error"] < 200)
             ):
                 break
             old_boost_score = boost_score
@@ -227,7 +227,6 @@ def find_aom_keyframes(stat_file: Path, key_freq_min: int):
         buffer_size = 208
         number_of_frames, dict_list = parse_fpfile(stat_file, fields[:26], buffer_size)
 
-
     # intentionally skipping 0th frame and last 16 frames
     frame_count_so_far = 1
     for i in range(1, number_of_frames - 16):
@@ -245,23 +244,14 @@ def find_aom_keyframes(stat_file: Path, key_freq_min: int):
 
 
 def get_chunk_info(stat_file, frame_start, frame_end):
-    keyframes_list = []
-
-    number_of_frames = round(os.stat(stat_file).st_size / 208) - 1
-    frame_end = min(frame_end, number_of_frames)
-    dict_list = []
     try:
-        with open(stat_file, "rb") as file:
-            frame_buf = file.read(208)
-            while len(frame_buf) > 0:
-                stats = struct.unpack("d" * 29, frame_buf)
-                p = dict(zip(fields, stats))
-                dict_list.append(p)
-                frame_buf = file.read(208)
-    except Exception as e:
-        print("Get exception:", e)
-        print("Recomended to switch to different method of scenedetection")
-        terminate()
+        buffer_size = 232
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields, buffer_size)
+    except struct.error:
+        buffer_size = 208
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields[:26], buffer_size)
+
+    frame_end = min(frame_end, number_of_frames)
 
     # intentionally skipping 0th frame and last 16 frames
     frame_count_so_far = 1
@@ -307,21 +297,14 @@ def get_chunk_info(stat_file, frame_start, frame_end):
 def detect_motion(stat_file, frame_start, frame_end):
     keyframes_list = []
 
-    number_of_frames = round(os.stat(stat_file).st_size / 208) - 1
-    frame_end = min(frame_end, number_of_frames)
-    dict_list = []
     try:
-        with open(stat_file, "rb") as file:
-            frame_buf = file.read(208)
-            while len(frame_buf) > 0:
-                stats = struct.unpack("d" * 26, frame_buf)
-                p = dict(zip(fields, stats))
-                dict_list.append(p)
-                frame_buf = file.read(208)
-    except Exception as e:
-        print("Get exception:", e)
-        print("Recomended to switch to different method of scenedetection")
-        terminate()
+        buffer_size = 232
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields, buffer_size)
+    except struct.error:
+        buffer_size = 208
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields[:26], buffer_size)
+
+    frame_end = min(frame_end, number_of_frames)
 
     # intentionally skipping 0th frame and last 16 frames
     frame_count_so_far = 1
@@ -389,7 +372,7 @@ def detect_motion(stat_file, frame_start, frame_end):
 
 
 def compose_aomsplit_first_pass_command(
-    video_path: Path, stat_file: Path, ffmpeg_pipe, video_params, is_vs
+        video_path: Path, stat_file: Path, ffmpeg_pipe, video_params, is_vs
 ) -> CommandPair:
     """
     Generates the command for the first pass of the entire video used for aom keyframe split
@@ -422,7 +405,7 @@ def compose_aomsplit_first_pass_command(
     video_params = " ".join(video_params)
 
     video_params = re.sub(
-        r"(--threads=[0-9]+)", f"--threads={min(32 ,os.cpu_count() * 3)}", video_params
+        r"(--threads=[0-9]+)", f"--threads={min(32, os.cpu_count() * 3)}", video_params
     )
 
     e = [
@@ -439,7 +422,7 @@ def compose_aomsplit_first_pass_command(
 
 
 def aom_keyframes(
-    video_path: Path, stat_file, min_scene_len, ffmpeg_pipe, video_params, is_vs, quiet
+        video_path: Path, stat_file, min_scene_len, ffmpeg_pipe, video_params, is_vs, quiet
 ):
     """[Get frame numbers for splits from aomenc 1 pass stat file]"""
 

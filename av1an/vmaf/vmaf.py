@@ -162,7 +162,7 @@ class VMAF:
             stderr=STDOUT,
             universal_newlines=True,
         )
-        utility = (ffmpeg_gen_pipe,)
+
         utility = (ffmpeg_gen_pipe,)
         process_pipe(pipe, chunk, utility)
 

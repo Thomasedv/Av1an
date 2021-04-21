@@ -91,7 +91,6 @@ class TargetQuality:
         log(f"Chunk #{chunk.index}: Q values for r1:{q_r1} r2:{q_r2} r3:{q_r3} r4:{q_r4}")
         return q_r1
 
-
     def per_shot_target_quality(self, chunk: Chunk):
         """
         :type: Chunk chunk to probe
