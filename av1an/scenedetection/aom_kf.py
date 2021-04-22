@@ -306,11 +306,8 @@ def detect_motion(stat_file, frame_start, frame_end):
 
     frame_end = min(frame_end, number_of_frames)
 
-    # intentionally skipping 0th frame and last 16 frames
-    frame_count_so_far = 1
-    subsample = 4
     suggested_subsample = 4
-    abs_mv_row = deque(maxlen=4)
+    abs_mv_row = deque(maxlen=4)  # 4 frame moving window motion estimates
     abs_mv_col = deque(maxlen=4)
 
     for i in range(frame_start, frame_end):

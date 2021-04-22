@@ -62,8 +62,8 @@ class TargetQuality:
            :type name: str chunk name
            :type skip: str None if normal results, else "high" or "low"
            :type target_q: int Calculated q to be used
-        :type target_vmaf: float Calculated VMAF that would be achieved by using the q
-            :return: None
+           :type target_vmaf: float Calculated VMAF that would be achieved by using the q
+           :return: None
         """
         if skip == "high":
             sk = " Early Skip High CQ"
@@ -432,7 +432,7 @@ class TargetQuality:
                 "--enable-global-motion=0",
                 "--min-partition-size=32",
                 "--max-partition-size=32",
-                # "--vmaf-model-path=vmaf_v0.6.1.json",
+                "--vmaf-model-path=vmaf_v0.6.1.json",
             ]
             cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
 
