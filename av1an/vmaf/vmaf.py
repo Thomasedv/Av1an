@@ -112,7 +112,6 @@ class VMAF:
         """
         Runs vmaf for Av1an
         """
-        cmd = ""
 
         if fl_path is None:
             fl_path = chunk.fake_input_path.with_name(encoded.stem).with_suffix(".json")
@@ -162,7 +161,7 @@ class VMAF:
             stderr=STDOUT,
             universal_newlines=True,
         )
-        utility = (ffmpeg_gen_pipe,)
+
         utility = (ffmpeg_gen_pipe,)
         process_pipe(pipe, chunk, utility)
 

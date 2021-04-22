@@ -1,5 +1,6 @@
 import re
 import subprocess
+import os
 
 import numpy as np
 from math import isnan
@@ -9,7 +10,7 @@ from av1an.chunk import Chunk
 from av1an.commandtypes import CommandPair, Command
 from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
-from av1an.scenedetection.aom_kf import detect_motion
+from av1an.scenedetection.aom_kf import detect_motion, get_chunk_info
 from av1an.vmaf import VMAF
 
 try:
@@ -38,6 +39,7 @@ class TargetQuality:
         self.encoder = project.encoder
         self.ffmpeg_pipe = project.ffmpeg_pipe
         self.temp = project.temp
+        self.workers = project.workers
         self.project = project
 
     def per_frame_target_quality_routine(self, chunk: Chunk):
@@ -60,8 +62,8 @@ class TargetQuality:
            :type name: str chunk name
            :type skip: str None if normal results, else "high" or "low"
            :type target_q: int Calculated q to be used
-        :type target_vmaf: float Calculated VMAF that would be achieved by using the q
-            :return: None
+           :type target_vmaf: float Calculated VMAF that would be achieved by using the q
+           :return: None
         """
         if skip == "high":
             sk = " Early Skip High CQ"
@@ -74,20 +76,39 @@ class TargetQuality:
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
         log(f"Target Q: {target_q} VMAF: {round(target_vmaf, 2)}")
 
+    def per_shot_compare_quality(self, chunk: Chunk):
+        stat_file = self.project.temp / "keyframes.log"
+        info = get_chunk_info(stat_file, *chunk.boundaries)
+        print(f"Chunk #{chunk.index}: {info}")
+
+        self.project.probing_rate = 4
+        q_r4 = self.per_shot_target_quality(chunk)
+        self.project.probing_rate = 3
+        q_r3 = self.per_shot_target_quality(chunk)
+        self.project.probing_rate = 2
+        q_r2 = self.per_shot_target_quality(chunk)
+        self.project.probing_rate = 1
+        q_r1 = self.per_shot_target_quality(chunk)
+
+        log(f"Chunk #{chunk.index}: Q values for r1:{q_r1} r2:{q_r2} r3:{q_r3} r4:{q_r4}")
+        return q_r1
+
     def per_shot_target_quality(self, chunk: Chunk):
         """
         :type: Chunk chunk to probe
         :rtype: int q to use
         """
         # TODO: Refactor this mess
+
         vmaf_cq = []
         frames = chunk.frames
 
         chunk.probing_rate = self.project.probing_rate
         if self.project.split_method == "aom_keyframes" and chunk.boundaries is not None:
             stat_file = self.project.temp / "keyframes.log"
-            chunk.probing_rate = detect_motion(stat_file, *chunk.boundaries)
-            log(f'Set probing_rate to {chunk.probing_rate} for chunk {chunk.index}')
+            chunk_motion_data = get_chunk_info(stat_file, *chunk.boundaries)
+            chunk.probing_rate = min(detect_motion(stat_file, *chunk.boundaries), chunk.probing_rate)
+            log(f'Set probing_rate to {chunk.probing_rate} for chunk {chunk.index}. Data: {chunk_motion_data}')
 
         if self.probes < 3:
             return self.fast_search(chunk)
@@ -312,7 +333,7 @@ class TargetQuality:
         :return : path to json file with vmaf scores
         """
 
-        n_threads = self.n_threads if self.n_threads else 12
+        n_threads = self.n_threads if self.n_threads else self.auto_vmaf_threads()
         cmd = self.probe_cmd(
             chunk, q, self.ffmpeg_pipe, self.encoder, chunk.probing_rate, n_threads
         )
@@ -322,6 +343,19 @@ class TargetQuality:
             chunk, self.gen_probes_names(chunk, q), vmaf_rate=chunk.probing_rate
         )
         return fl
+
+    def auto_vmaf_threads(self):
+        """
+        Calculates number of vmaf threads based on CPU cores in system
+
+        :return: Integer value for number of threads
+        """
+        cores = os.cpu_count()
+        # One thread may not be enough to keep the CPU saturated, so over-provision a bit.
+        over_provision_factor = 1.25
+        minimum_threads = 1
+
+        return int(max((cores / self.workers) * over_provision_factor, minimum_threads))
 
     def get_closest(self, q_list, q, positive=True):
         """
@@ -398,7 +432,7 @@ class TargetQuality:
                 "--enable-global-motion=0",
                 "--min-partition-size=32",
                 "--max-partition-size=32",
-                # "--vmaf-model-path=vmaf_v0.6.1.json",
+                "--vmaf-model-path=vmaf_v0.6.1.json",
             ]
             cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
 
