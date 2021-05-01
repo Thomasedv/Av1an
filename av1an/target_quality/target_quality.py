@@ -10,7 +10,6 @@ from av1an.chunk import Chunk
 from av1an.commandtypes import CommandPair, Command
 from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
-from av1an.scenedetection.aom_kf import detect_motion, get_chunk_info
 from av1an.utils import get_project_priority
 from av1an.vmaf import VMAF
 
@@ -78,23 +77,6 @@ class TargetQuality:
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
         log(f"Target Q: {target_q} VMAF: {round(target_vmaf, 2)}")
 
-    def per_shot_compare_quality(self, chunk: Chunk):
-        stat_file = self.project.temp / "keyframes.log"
-        info = get_chunk_info(stat_file, *chunk.boundaries)
-        print(f"Chunk #{chunk.index}: {info}")
-
-        self.project.probing_rate = 4
-        q_r4 = self.per_shot_target_quality(chunk)
-        self.project.probing_rate = 3
-        q_r3 = self.per_shot_target_quality(chunk)
-        self.project.probing_rate = 2
-        q_r2 = self.per_shot_target_quality(chunk)
-        self.project.probing_rate = 1
-        q_r1 = self.per_shot_target_quality(chunk)
-
-        log(f"Chunk #{chunk.index}: Q values for r1:{q_r1} r2:{q_r2} r3:{q_r3} r4:{q_r4}")
-        return q_r1
-
     def per_shot_target_quality(self, chunk: Chunk):
         """
         :type: Chunk chunk to probe
@@ -106,11 +88,6 @@ class TargetQuality:
         frames = chunk.frames
 
         chunk.probing_rate = self.project.probing_rate
-        if self.project.split_method == "aom_keyframes" and chunk.boundaries is not None:
-            stat_file = self.project.temp / "keyframes.log"
-            chunk_motion_data = get_chunk_info(stat_file, *chunk.boundaries)
-            chunk.probing_rate = min(detect_motion(stat_file, *chunk.boundaries), chunk.probing_rate)
-            log(f'Set probing_rate to {chunk.probing_rate} for chunk {chunk.index}. Data: {chunk_motion_data}')
 
         if self.probes < 3:
             return self.fast_search(chunk)
