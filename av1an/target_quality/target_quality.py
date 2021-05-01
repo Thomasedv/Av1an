@@ -411,7 +411,6 @@ class TargetQuality:
                 "--enable-global-motion=0",
                 "--min-partition-size=32",
                 "--max-partition-size=32",
-                "--vmaf-model-path=vmaf_v0.6.1.json",
             ]
             cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
 
