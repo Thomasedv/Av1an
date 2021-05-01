@@ -78,9 +78,14 @@ def startup_check(project: Project):
     Performing essential checks at startup_check
     Set constant values
     """
-    if sys.version_info < (3, 6):
-        print('Python 3.6+ required')
-        sys.exit()
+    if sys.version_info < (3, 7):
+        print('Python 3.7+ required')
+        sys.exit(1)
+
+    if sys.platform != 'win32' and project.priority != 'normal':
+        print('Changing process priority is only supported on Windows')
+        sys.exit(1)
+
     if sys.platform == 'linux':
 
         def restore_term():
