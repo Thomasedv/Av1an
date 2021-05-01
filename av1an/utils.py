@@ -20,7 +20,6 @@ def terminate():
 
 def get_project_priority(project: Project):
     priorities = {
-        'idle': subprocess.IDLE_PRIORITY_CLASS,
         'low': subprocess.BELOW_NORMAL_PRIORITY_CLASS,
         'normal': subprocess.NORMAL_PRIORITY_CLASS,
         'high': subprocess.HIGH_PRIORITY_CLASS
