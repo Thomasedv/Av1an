@@ -41,18 +41,19 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
                 utility_errors.extend(u_error)
 
         msg1 = f"Encoder encountered an error: {pipe.returncode}"
-        msg2 = f"Chunk: {chunk.index}" + "\n".join(encoder_history)
+        msg2 = f"Chunk: {chunk.index}"
+        msg3 = "\n".join(encoder_history)
 
         if utility_errors:
-            msg3 = "Pipes errors:"+"\n".join(utility_errors)
-            log(msg1, msg2, msg3)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}\n"+"-"*10)
+            msg4 = "Pipes errors:" + "\n".join(utility_errors)
+            log(msg1, msg2, 'Exception was:\n'+msg3, msg4)
+            tb_msg = f"{msg3}\n{msg4}"
         else:
-            log(msg1, msg2)
-            print(f"::{msg1}\n::{msg2}\n"+"-"*10)
+            log(msg1, msg2, 'Exception was:\n'+msg3)
+            tb_msg = f"{msg3}"
 
         tb = sys.exc_info()[2]
-        raise RuntimeError("Error in processing encoding pipe").with_traceback(tb)
+        raise RuntimeError(f"Error in processing encoding pipe\n{tb_msg}").with_traceback(tb)
 
 
 def process_encoding_pipe(
@@ -104,15 +105,15 @@ def process_encoding_pipe(
         msg3 = "\n".join(encoder_history)
 
         if utility_errors:
-            msg4 = "Pipes errors:"+"\n".join(utility_errors)
-            log(msg1, msg2, msg3, msg4)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}\n::{msg4}\n"+"-"*10)
+            msg4 = "Pipes errors:" + "\n".join(utility_errors)
+            log(msg1, msg2, 'Exception was:\n'+msg3, msg4)
+            tb_msg = f"{msg3}\n{msg4}"
         else:
-            log(msg1, msg2, msg3)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}\n"+"-"*10)
+            log(msg1, msg2, 'Exception was:\n'+msg3)
+            tb_msg = f"{msg3}"
 
         tb = sys.exc_info()[2]
-        raise RuntimeError("Error in processing encoding pipe:").with_traceback(tb)
+        raise RuntimeError(f"Error in processing encoding pipe\n{tb_msg}").with_traceback(tb)
 
 
 def tqdm_bar(

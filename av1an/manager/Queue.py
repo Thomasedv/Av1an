@@ -118,20 +118,16 @@ class Queue:
 
             except Exception as e:
                 msg1, msg2, msg3 = (
-                    f"Chunk #{chunk.index} crashed",
-                    f"Exception: {type(e).__name__} {e}",
-                    "Restarting chunk",
+                    f"Chunk #{chunk.index} crashed. Restarting...",
+                    f"Exception::{type(e).__name__}: {e}",
+                    "-"*10,
                 )
-                log(msg1, msg2, msg3)
-                print(f"{msg1}\n::{msg2}\n::{msg3}")
+                print(f"::{msg1}\n::{msg2}\n{msg3}")
                 restart_count += 1
 
-        msg1, msg2 = (
-            "FATAL",
-            f"Chunk #{chunk.index} failed more than 3 times, shutting down thread",
-        )
-        log(msg1, msg2)
-        print(f"::{msg1}\n::{msg2}")
+        msg1 = f"Chunk #{chunk.index} failed more than 3 times, shutting down thread"
+        log(msg1)
+        print(f"::{msg1}")
         self.status = "FATAL"
 
     def frame_check_output(
