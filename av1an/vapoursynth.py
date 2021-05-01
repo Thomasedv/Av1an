@@ -1,8 +1,12 @@
 import re
+import sys
 from pathlib import Path
 from shlex import split
 from subprocess import PIPE
 from subprocess import run, Popen
+
+from av1an.logger import log
+
 
 VS_EXTENSIONS = [".vpy", ".py"]
 
@@ -18,10 +22,16 @@ def frame_probe_vspipe(source: Path):
     """
     cmd = ["vspipe", "-i", source.as_posix(), "-"]
     r = run(cmd, capture_output=True)
+    output = r.stderr.decode("utf-8") + r.stdout.decode("utf-8")
     matches = re.findall(
-        r"Frames:\s*([0-9]+)\s", r.stderr.decode("utf-8") + r.stdout.decode("utf-8")
+        r"Frames:\s*([0-9]+)\s", output
     )
-    frames = int(matches[-1])
+    try:
+        frames = int(matches[-1])
+    except IndexError:
+        log(output)
+        print('Failed to do frame probe')
+        sys.exit(1)
     return frames
 
 
