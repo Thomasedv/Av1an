@@ -119,7 +119,7 @@ class Queue:
             except Exception as e:
                 msg1, msg2, msg3 = (
                     f"Chunk #{chunk.index} crashed",
-                    f"Exception: {type(e)} {e}",
+                    f"Exception: {type(e).__name__} {e}",
                     "Restarting chunk",
                 )
                 log(msg1, msg2, msg3)

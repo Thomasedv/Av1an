@@ -85,7 +85,7 @@ class Aom(Encoder):
         :return: match object from re.search matching the number of encoded frames"""
 
         if "fatal" in line.lower():
-            print("\n\nERROR IN ENCODING PROCESS\n\n", line)
+            print("\n\nERROR IN ENCODING PROCESS\n", line, sep='')
             terminate()
         if "Pass 2/2" in line or "Pass 1/1" in line:
             return re.search(r"frame.*?/([^ ]+?) ", line)
