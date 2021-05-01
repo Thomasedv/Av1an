@@ -74,7 +74,7 @@ jobs:
       - name: Install requirements
         run: |
           apt-get update && apt-get install -y ${{ env.deps }}
-          pip3 install --no-cache-dir -r requirements.txt
+          python -m pip install --no-cache-dir -r requirements.txt
       - name: Download videos
         run: |
           for url in raw.githubusercontent.com/OpenVisualCloud/SVT-AV1-Resources/master randomderp.com; do
@@ -83,7 +83,7 @@ jobs:
           tar xf video.tar.gz
       - name: Testing ${{ matrix.name }}
         run: |
-          ./av1an.py -i bus_cif.y4m -enc ${{ matrix.enc }} -tr 20 --keep -o "bus_cif.mkv" ${{ matrix.flags }}
+          python ./av1an.py -i bus_cif.y4m -enc ${{ matrix.enc }} -tr 20 --keep -o "bus_cif.mkv" ${{ matrix.flags }}
           du -h bus_cif.mkv
           tree -a
 
