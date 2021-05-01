@@ -243,6 +243,131 @@ def find_aom_keyframes(stat_file: Path, key_freq_min: int):
     return keyframes_list
 
 
+def get_chunk_info(stat_file, frame_start, frame_end):
+    try:
+        buffer_size = 232
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields, buffer_size)
+    except struct.error:
+        buffer_size = 208
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields[:26], buffer_size)
+
+    frame_end = min(frame_end, number_of_frames)
+
+    # intentionally skipping 0th frame and last 16 frames
+    frame_count_so_far = 1
+    subsample = 4
+    suggested_subsample = 4
+    abs_mv_row = deque(maxlen=4)
+    abs_mv_col = deque(maxlen=4)
+
+    max_mv_r = 0
+    max_mv_c = 0
+    max_interval_r = 0
+    max_interval_c = 0
+    average_r = 0
+    average_c = 0
+    frames = 0
+    for i in range(frame_start, frame_end):
+        frames += 1
+        c = dict_list[i]
+        abs_mv_row.append(c['mvr_abs'])
+        abs_mv_col.append(c['mvc_abs'])
+
+        mv_interval_r = sum(abs_mv_row)
+        mv_interval_c = sum(abs_mv_col)
+
+        max_mv_r = max(max_mv_r, c['mvr_abs'])
+        max_mv_c = max(max_mv_c, c['mvc_abs'])
+        max_interval_r = max(max_interval_r, mv_interval_r)
+        max_interval_c = max(max_interval_c, mv_interval_c)
+        average_r += c['mvr_abs']
+        average_c += c['mvc_abs']
+    stats = dict(
+        max_mv_r=max_mv_r,
+        max_mv_c=max_mv_c,
+        max_interval_r=max_interval_r,
+        max_interval_c=max_interval_c,
+        average_r=average_r / frames,
+        average_c=average_c / frames,
+    )
+
+    return stats
+
+
+def detect_motion(stat_file, frame_start, frame_end):
+    keyframes_list = []
+
+    try:
+        buffer_size = 232
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields, buffer_size)
+    except struct.error:
+        buffer_size = 208
+        number_of_frames, dict_list = parse_fpfile(stat_file, fields[:26], buffer_size)
+
+    frame_end = min(frame_end, number_of_frames)
+
+    suggested_subsample = 4
+    abs_mv_row = deque(maxlen=4)  # 4 frame moving window motion estimates
+    abs_mv_col = deque(maxlen=4)
+
+    for i in range(frame_start, frame_end):
+        c = dict_list[i]
+        abs_mv_row.append(c['mvr_abs'])
+        abs_mv_col.append(c['mvc_abs'])
+
+        if sum(abs_mv_col) > 1800 or sum(abs_mv_row) > 1650:
+            suggested_subsample = min(suggested_subsample, 3)
+        if sum(abs_mv_col) > 2100 or sum(abs_mv_row) > 1900:
+            suggested_subsample = min(suggested_subsample, 2)
+        if sum(abs_mv_col) > 3000 or sum(abs_mv_row) > 2800:
+            suggested_subsample = 1
+            break
+
+        # f = future_frame_dict
+        # fields = [
+        #     "frame",
+        #     "weight",
+        #     "intra_error",
+        #     "frame_avg_wavelet_energy",
+        #     "coded_error",
+        #     "sr_coded_error",
+        #     "tr_coded_error",
+        #     "pcnt_inter",
+        #     "pcnt_motion",
+        #     "pcnt_second_ref",
+        #     "pcnt_third_ref",
+        #     "pcnt_neutral",
+        #     "intra_skip_pct",
+        #     "inactive_zone_rows",
+        #     "inactive_zone_cols",
+        #     "MVr",
+        #     "mvr_abs",
+        #     "MVc",
+        #     "mvc_abs",
+        #     "MVrv",
+        #     "MVcv",
+        #     "mv_in_out_count",
+        #     "new_mv_count",
+        #     "duration",
+        #     "count",
+        #     "raw_error_stdev",
+        # ]
+        # print(f" Frame {int(c['frame']):4d} Motion: {c['pcnt_motion']:6.3f} | Inter: {c['pcnt_inter']:6.3f} | Neutral: {c['pcnt_neutral']:6.3f} | "
+        #       f"MVr {c['MVr']:8.2f} | MVc {c['MVc']:8.2f} | MVrv {c['MVrv']/100:8.2f} | MVcv {c['MVcv']/100:8.2f} | "
+        #       f"mvr_abs {c['mvr_abs']:8.2f} | mvc_abs {c['mvc_abs']:8.2f}")
+
+        # is_keyframe = False
+        # https://aomedia.googlesource.com/aom/+/ce97de2724d7ffdfdbe986a14d49366936187298/av1/encoder/pass2_strategy.c#2065
+        # if frame_count_so_far >= key_freq_min:
+        #     is_keyframe = test_candidate_kf(dict_list, i, frame_count_so_far)
+        # if is_keyframe:
+        #     keyframes_list.append(i)
+        #     frame_count_so_far = 0
+        # frame_count_so_far += 1
+
+    return suggested_subsample
+
+
 def compose_aomsplit_first_pass_command(
         video_path: Path, stat_file: Path, ffmpeg_pipe, video_params, is_vs
 ) -> CommandPair:
