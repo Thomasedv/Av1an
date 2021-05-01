@@ -46,10 +46,10 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
         if utility_errors:
             msg3 = "Pipes errors:"+"\n".join(utility_errors)
             log(msg1, msg2, msg3)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}")
+            print(f"::{msg1}\n::{msg2}\n::{msg3}\n"+"-"*10)
         else:
             log(msg1, msg2)
-            print(f"::{msg1}\n::{msg2}")
+            print(f"::{msg1}\n::{msg2}\n"+"-"*10)
 
         tb = sys.exc_info()[2]
         raise RuntimeError("Error in processing encoding pipe").with_traceback(tb)
@@ -106,10 +106,10 @@ def process_encoding_pipe(
         if utility_errors:
             msg4 = "Pipes errors:"+"\n".join(utility_errors)
             log(msg1, msg2, msg3, msg4)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}\n::{msg4}")
+            print(f"::{msg1}\n::{msg2}\n::{msg3}\n::{msg4}\n"+"-"*10)
         else:
             log(msg1, msg2, msg3)
-            print(f"::{msg1}\n::{msg2}\n::{msg3}")
+            print(f"::{msg1}\n::{msg2}\n::{msg3}\n"+"-"*10)
 
         tb = sys.exc_info()[2]
         raise RuntimeError("Error in processing encoding pipe:").with_traceback(tb)

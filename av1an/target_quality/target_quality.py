@@ -28,6 +28,7 @@ class TargetQuality:
             model=project.vmaf_path,
             res=project.vmaf_res,
             vmaf_filter=project.vmaf_filter,
+            priority=get_project_priority(project)
         )
         self.n_threads = project.n_threads
         # self .probing_rate = project.probing_rate

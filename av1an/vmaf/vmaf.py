@@ -28,11 +28,12 @@ from av1an.chunk import Chunk
 
 
 class VMAF:
-    def __init__(self, n_threads=0, model=None, res=None, vmaf_filter=None):
+    def __init__(self, n_threads=0, model=None, res=None, vmaf_filter=None, priority=0):
         self.n_threads = f":n_threads={n_threads}" if n_threads else ""
         self.model = f":model_path={model}" if model else ""
         self.res = res if res else "1920x1080"
         self.vmaf_filter = vmaf_filter + "," if vmaf_filter else ""
+        self.priority = priority
         self.validate_vmaf()
 
     def validate_vmaf(self):
@@ -48,7 +49,7 @@ class VMAF:
         cmd = f" ffmpeg -hide_banner -filter_complex testsrc=duration=1:size=1920x1080:rate=1[B];testsrc=duration=1:size=1920x1080:rate=1[A];[B][A]libvmaf{add} -t 1  -f null - ".split()
 
         pipe = subprocess.Popen(
-            cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True
+            cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=self.priority
         )
 
         encoder_history = deque(maxlen=30)
@@ -151,7 +152,7 @@ class VMAF:
         cmd = (*cmd_in, *filter_complex, distorted + ref + vmaf_filter, *cmd_out)
 
         ffmpeg_gen_pipe = subprocess.Popen(
-            chunk.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT
+            chunk.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT, creationflags=self.priority
         )
 
         pipe = subprocess.Popen(
@@ -160,6 +161,7 @@ class VMAF:
             stdout=PIPE,
             stderr=STDOUT,
             universal_newlines=True,
+            creationflags=self.priority,
         )
 
         utility = (ffmpeg_gen_pipe,)
