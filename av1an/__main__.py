@@ -7,6 +7,9 @@ def main():
     """
     Running Av1an CLI
     """
+    import sys
+    print("Python version")
+    print (sys.version)
     parser = Args()
     project = parser.get_project()
     startup_check(project)
