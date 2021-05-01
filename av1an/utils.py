@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List
 
 import cv2
+import psutil
 
 from av1an.ffmpeg import frame_probe_ffmpeg
 from av1an.project import Project
@@ -20,9 +21,10 @@ def terminate():
 
 def get_project_priority(project: Project):
     priorities = {
-        'low': subprocess.BELOW_NORMAL_PRIORITY_CLASS,
-        'normal': subprocess.NORMAL_PRIORITY_CLASS,
-        'high': subprocess.HIGH_PRIORITY_CLASS
+        'idle': psutil.IDLE_PRIORITY_CLASS,
+        'low': psutil.BELOW_NORMAL_PRIORITY_CLASS,
+        'normal': psutil.NORMAL_PRIORITY_CLASS,
+        'high': psutil.HIGH_PRIORITY_CLASS,
     }
     return priorities[project.priority]
 
