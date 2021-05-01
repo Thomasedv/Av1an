@@ -83,6 +83,8 @@ class Project(object):
         self.video_dimensions = (None, None)
         self.video_framerate = None
 
+        self.priority: str = None
+
         # Set all initial values
         self.load_project(initial_data)
 

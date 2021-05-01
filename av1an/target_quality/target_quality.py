@@ -11,6 +11,7 @@ from av1an.commandtypes import CommandPair, Command
 from av1an.logger import log
 from av1an.manager.Pipes import process_pipe
 from av1an.scenedetection.aom_kf import detect_motion, get_chunk_info
+from av1an.utils import get_project_priority
 from av1an.vmaf import VMAF
 
 try:
@@ -40,6 +41,7 @@ class TargetQuality:
         self.ffmpeg_pipe = project.ffmpeg_pipe
         self.temp = project.temp
         self.workers = project.workers
+        self.priority = get_project_priority(project)
         self.project = project
 
     def per_frame_target_quality_routine(self, chunk: Chunk):
@@ -707,7 +709,10 @@ class TargetQuality:
     def make_pipes(self, ffmpeg_gen_cmd: Command, command: CommandPair):
 
         ffmpeg_gen_pipe = subprocess.Popen(
-            ffmpeg_gen_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            ffmpeg_gen_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            creationflags=self.priority
         )
 
         ffmpeg_pipe = subprocess.Popen(
@@ -715,6 +720,7 @@ class TargetQuality:
             stdin=ffmpeg_gen_pipe.stdout,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            creationflags=self.priority,
         )
 
         pipe = subprocess.Popen(
@@ -723,6 +729,7 @@ class TargetQuality:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
+            creationflags=self.priority,
         )
 
         utility = (ffmpeg_gen_pipe, ffmpeg_pipe)

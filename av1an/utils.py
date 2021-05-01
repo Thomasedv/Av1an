@@ -2,6 +2,7 @@
 
 import hashlib
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import List
@@ -9,11 +10,22 @@ from typing import List
 import cv2
 
 from av1an.ffmpeg import frame_probe_ffmpeg
+from av1an.project import Project
 from av1an.vapoursynth import frame_probe_vspipe, is_vapoursynth
 
 
 def terminate():
     sys.exit(1)
+
+
+def get_project_priority(project: Project):
+    priorities = {
+        'idle': subprocess.IDLE_PRIORITY_CLASS,
+        'low': subprocess.BELOW_NORMAL_PRIORITY_CLASS,
+        'normal': subprocess.NORMAL_PRIORITY_CLASS,
+        'high': subprocess.HIGH_PRIORITY_CLASS
+    }
+    return priorities[project.priority]
 
 
 def hash_path(s: str) -> int:

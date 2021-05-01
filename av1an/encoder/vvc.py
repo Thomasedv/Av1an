@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 from av1an.chunk import Chunk
 from av1an.commandtypes import MPCommands, CommandPair, Command
 from av1an.project import Project
-from av1an.utils import list_index_of_regex
+from av1an.utils import list_index_of_regex, get_project_priority
 from .encoder import Encoder
 
 
@@ -105,8 +105,10 @@ class Vvc(Encoder):
         elif c.vmaf_target_cq:
             enc_cmd = self.man_q(enc_cmd, c.vmaf_target_cq)
 
+        priority = get_project_priority(a)
+
         pipe = subprocess.Popen(
-            enc_cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True
+            enc_cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=priority
         )
         return pipe, tuple()
 

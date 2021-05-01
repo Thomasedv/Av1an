@@ -295,5 +295,11 @@ class Args:
         misc_group.add_argument(
             "--version", action="version", version=f"Av1an version: 6.1-2"
         )
+        misc_group.add_argument(
+            "--priority",
+            choices=['idle', 'low', 'normal', 'high'],
+            default='normal',
+            help='Sets process priority (Default: normal)'
+        )
         # Initialize project with initial values
         return parser

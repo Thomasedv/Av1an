@@ -7,6 +7,7 @@ from typing import Tuple, Optional
 
 from av1an.commandtypes import Command, MPCommands
 from av1an.project import Project
+from av1an.utils import get_project_priority
 
 
 class Encoder(ABC):
@@ -133,16 +134,21 @@ class Encoder(ABC):
         elif c.per_frame_target_quality_q_list:
             enc_cmd = self.mod_command(enc_cmd, c)
 
-        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT)
+        priority = get_project_priority(a)
+
+        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT, creationflags=priority)
+
         ffmpeg_pipe = subprocess.Popen(
-            filter_cmd, stdin=ffmpeg_gen_pipe.stdout, stdout=PIPE, stderr=STDOUT
+            filter_cmd, stdin=ffmpeg_gen_pipe.stdout, stdout=PIPE, stderr=STDOUT, creationflags=priority
         )
+
         pipe = subprocess.Popen(
             enc_cmd,
             stdin=ffmpeg_pipe.stdout,
             stdout=PIPE,
             stderr=STDOUT,
             universal_newlines=True,
+            creationflags=priority
         )
 
         utility = (ffmpeg_gen_pipe, ffmpeg_pipe)
