@@ -32,15 +32,25 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
     if pipe.returncode != 0 and pipe.returncode != -2:
         if pipe.returncode == 3221225786:
             raise KeyboardInterrupt('User stopped')
+
+        utility_errors = []
+
+        for u_pipe in utility:
+            u_error = u_pipe.stdout.readlines()
+            if u_error:
+                utility_errors.extend(u_error)
+
         msg1 = f"Encoder encountered an error: {pipe.returncode}"
         msg2 = f"Chunk: {chunk.index}" + "\n".join(encoder_history)
-        log(msg1, msg2)
-        try:
-            for u_pipe in utility:
-                # print(u_pipe.stderr.readlines())
-                log(u_pipe.stdout.readlines())
-        except:
-            log('Failed to get stderr for a pipe')
+
+        if utility_errors:
+            msg3 = "Pipes errors:"+"\n".join(utility_errors)
+            log(msg1, msg2, msg3)
+            print(f"::{msg1}\n::{msg2}\n::{msg3}")
+        else:
+            log(msg1, msg2)
+            print(f"::{msg1}\n::{msg2}")
+
         tb = sys.exc_info()[2]
         raise RuntimeError("Error in processing encoding pipe").with_traceback(tb)
 
@@ -82,13 +92,27 @@ def process_encoding_pipe(
         if pipe.returncode == 3221225786:
             raise KeyboardInterrupt('User stopped')
 
+        utility_errors = []
+
+        for u_pipe in utility:
+            u_error = u_pipe.stdout.readlines()
+            if u_error:
+                utility_errors.extend(u_error)
+
         msg1 = f"Encoder encountered an error: {pipe.returncode}"
         msg2 = f"Chunk: {chunk.index}"
         msg3 = "\n".join(encoder_history)
-        log(msg1, msg2, msg3)
-        print(f"::{msg1}\n::{msg2}\n::{msg3}")
+
+        if utility_errors:
+            msg4 = "Pipes errors:"+"\n".join(utility_errors)
+            log(msg1, msg2, msg3, msg4)
+            print(f"::{msg1}\n::{msg2}\n::{msg3}\n::{msg4}")
+        else:
+            log(msg1, msg2, msg3)
+            print(f"::{msg1}\n::{msg2}\n::{msg3}")
+
         tb = sys.exc_info()[2]
-        raise RuntimeError("Error in processing encoding pipe").with_traceback(tb)
+        raise RuntimeError("Error in processing encoding pipe:").with_traceback(tb)
 
 
 def tqdm_bar(
