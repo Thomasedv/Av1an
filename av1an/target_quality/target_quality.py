@@ -535,7 +535,7 @@ class TargetQuality:
                 "--tf-level",
                 "3",
             ]
-            cmd = CommandPair(pipe, [*params, "-b", probe_name, "-"])
+            cmd = CommandPair(pipe, [*params, "-b", probe_name])
 
         elif encoder == "svt_vp9":
             params = [
