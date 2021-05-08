@@ -126,6 +126,7 @@ class Encoder(ABC):
             if passes == 1
             else self.compose_2_pass(a, c, output)[current_pass - 1]
         )
+
         if man_q:
             enc_cmd = self.man_q(enc_cmd, man_q)
         elif c.per_shot_target_quality_cq:
@@ -136,10 +137,10 @@ class Encoder(ABC):
 
         priority = get_project_priority(a)
 
-        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT, creationflags=priority)
+        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=priority)
 
         ffmpeg_pipe = subprocess.Popen(
-            filter_cmd, stdin=ffmpeg_gen_pipe.stdout, stdout=PIPE, stderr=STDOUT, creationflags=priority
+            filter_cmd, stdin=ffmpeg_gen_pipe.stdout, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=priority
         )
 
         pipe = subprocess.Popen(
