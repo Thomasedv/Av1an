@@ -12,6 +12,7 @@ import cv2
 from av1an.ffmpeg import frame_probe_ffmpeg
 from av1an.project import Project
 from av1an.vapoursynth import frame_probe_vspipe, is_vapoursynth
+from av1an.logger import log
 
 
 def terminate():
@@ -38,8 +39,10 @@ def hash_path(s: str) -> int:
     :param s: string
     """
     assert isinstance(s, str)
+    file_hash = str(hashlib.sha3_512(s.encode()).hexdigest())[-8:]
+    log(f"File hash: {file_hash}")
 
-    return str(hashlib.sha3_512(s.encode()).hexdigest())[-8:]
+    return file_hash
 
 
 def get_cq(command):
@@ -87,11 +90,14 @@ def frame_probe_fast(source: Path, is_vs: bool = False):
                 total = core.lsmas.LWLibavSource(
                     source.as_posix(), cache=False
                 ).num_frames
+                log("Get frame count with lsmash")
+                log(f"Frame count: {total}")
                 return total
         except:
             video = cv2.VideoCapture(source.as_posix())
             total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             video.release()
+            log("Can't open input with Pyscenedetect OpenCV")
     if is_vs or total < 1:
         total = frame_probe(source)
 
