@@ -689,6 +689,7 @@ class TargetQuality:
             ffmpeg_gen_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            universal_newlines=True,
             creationflags=self.priority
         )
 
@@ -697,6 +698,7 @@ class TargetQuality:
             stdin=ffmpeg_gen_pipe.stdout,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            universal_newlines=True,
             creationflags=self.priority,
         )
 

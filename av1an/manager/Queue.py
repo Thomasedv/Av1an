@@ -123,6 +123,10 @@ class Queue:
                     "-"*10,
                 )
                 print(f"::{msg1}\n::{msg2}\n{msg3}")
+
+                # Log if error didn't come from a pipe crash
+                if not isinstance(e, RuntimeError):
+                    log(f"::{msg1}\n::{msg2}\n{msg3}")
                 restart_count += 1
 
         msg1 = f"Chunk #{chunk.index} failed more than 3 times, shutting down thread"
