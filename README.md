@@ -266,6 +266,6 @@ The docker image has the following tags
 
 The --user flag is required to avoid permission issues with the docker container not being able to write to the location, if you get permission issues ensure your user has access to the folder that you are using to encode.
 
-### Support the developer
+### Support the developer (Original creator: @master-of-zen)
 
 Bitcoin - 1GTRkvV4KdSaRyFDYTpZckPKQCoWbWkJV1
