@@ -7,6 +7,7 @@ import sys
 from collections import deque
 from pathlib import Path
 from subprocess import PIPE, STDOUT
+from typing import Optional, Union
 
 import numpy as np
 from math import log as ln
@@ -97,7 +98,7 @@ class VMAF:
         cmd_in = (
             "ffmpeg",
             "-loglevel",
-            "error",
+            "warning",
             "-y",
             "-thread_queue_size",
             "1024",
@@ -112,7 +113,7 @@ class VMAF:
             "-",
         )
 
-        filter_complex = ("-filter_complex",)
+        filter_complex = ("-vsync", "0", "-filter_complex",)
 
         # Change framerate of comparison to framerate of probe
         n_subsamples = f":n_subsample={vmaf_rate}" if vmaf_rate else ""
@@ -258,14 +259,15 @@ class VMAF:
         score = np.average([x["metrics"]["vmaf"] for x in js["frames"]])
         return score
 
-    def plot_vmaf(self, source: Path, encoded: Path, args):
+    def plot_vmaf(self, source: Path, encoded: Path, args, fl_path: Optional[Union[str, Path]] = None):
         """
         Making VMAF plot after encode is done
         """
 
         print(":: VMAF Run..", end="\r")
 
-        fl_path = encoded.with_name(f"{encoded.stem}_vmaflog").with_suffix(".json")
+        if fl_path is None:
+            fl_path = encoded.with_name(f"{encoded.stem}_vmaflog").with_suffix(".json")
 
         # call_vmaf takes a chunk, so make a chunk of the entire source
         ffmpeg_gen_cmd = [
@@ -287,7 +289,7 @@ class VMAF:
         scores = self.call_vmaf(input_chunk, encoded, 0, fl_path=fl_path)
 
         if not scores.exists():
-            print(f"Vmaf calculation failed for chunks:\n {source.name} {encoded.stem}")
+            print(f"Vmaf calculation failed for chunks:\n {source.name} - {encoded.stem}")
             sys.exit()
 
         file_path = encoded.with_name(f"{encoded.stem}_plot").with_suffix(".png")

@@ -26,6 +26,13 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
             encoder_history.append(line)
 
     for u_pipe in utility:
+        utility_errors = []
+        u_error = u_pipe.stdout.readlines()
+        if u_error:
+            utility_errors.extend(u_error)
+        out = "Pipes errors:" + "\n".join(utility_errors)
+        log(out)
+
         if u_pipe.poll() is None:
             u_pipe.kill()
 

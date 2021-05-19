@@ -354,7 +354,7 @@ class TargetQuality:
         return min(q_list, key=lambda x: abs(x - q))
 
     def probe_cmd(
-            self, chunk: Chunk, q, ffmpeg_pipe, encoder, probing_rate, n_threads
+            self, chunk: Chunk, q: int, ffmpeg_pipe: list, encoder: str, probing_rate: int, n_threads: int
     ) -> CommandPair:
         """
         Generate and return commands for probes at set Q values
@@ -363,6 +363,12 @@ class TargetQuality:
         should be faster than the actual encoding commands.
         These should not be moved into encoder classes at this point.
         """
+        ffmpeg_pipe_probe = ffmpeg_pipe.copy()
+        try:
+            ffmpeg_pipe_probe[ffmpeg_pipe_probe.index('yuv420p10le')] = 'yuv420p'
+        except ValueError:
+            pass
+
         pipe = [
             "ffmpeg",
             "-y",
@@ -375,7 +381,6 @@ class TargetQuality:
             f"select=not(mod(n\\,{probing_rate}))",
             *ffmpeg_pipe,
         ]
-
         probe_name = self.gen_probes_names(chunk, q).with_suffix(".ivf").as_posix()
 
         if encoder == "aom":

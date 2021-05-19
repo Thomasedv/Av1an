@@ -155,18 +155,11 @@ class Project(object):
     def promt_output_overwrite(self):
 
         if self.output_file.exists():
-            print(
-                f":: Output file {self.output_file} exist, overwrite? [y/n or enter]:", 
-                end='',
-            )
+            prompt = input(f"::[warning] Output file {self.output_file} exist, overwrite? (y/[n]): ")
 
-            promt = input()
+            if not prompt or prompt.lower() not in ('y', 'yes'):
+                terminate()
 
-            if "y" in promt.lower() or promt.strip() == "":
-                pass
-            else:
-                print("Stopping")
-                sys.exit()
 
     def load_project_from_file(self, path_string):
         """
@@ -234,6 +227,13 @@ class Project(object):
         # Checking is resume possible
         done_path = self.temp / "done.json"
         self.resume = self.resume and done_path.exists()
+
+        if not self.resume and self.temp.exists():
+            prompt = input(f":: Temp folder already exists, did you intend to resume? ([y]/n):")
+            if not prompt or prompt.lower() not in ('n', 'no'):
+                self.resume = False
+            else:
+                self.resume = True
 
         if not self.resume and self.temp.is_dir():
             shutil.rmtree(self.temp)

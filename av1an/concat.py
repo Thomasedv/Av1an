@@ -126,13 +126,13 @@ def concatenate_mkvmerge(temp: Path, output):
 
     log("Concatenating")
 
-    output = shlex.quote(output.as_posix())
+    output = output.as_posix()
 
     encode_files = sorted(
         (temp / "encode").iterdir(),
         key=lambda x: int(x.stem) if x.stem.isdigit() else x.stem,
     )
-    encode_files = [shlex.quote(f.as_posix()) for f in encode_files]
+    encode_files = [f.as_posix() for f in encode_files]
 
     if platform.system() == "Linux":
         file_limit, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -162,7 +162,7 @@ def concatenate_mkvmerge(temp: Path, output):
         log(message)
         print(message)
         tb = sys.exc_info()[2]
-        raise RuntimeError.with_traceback(tb)
+        raise RuntimeError().with_traceback(tb)
 
     # remove temporary files used by recursive concat
     if os.path.exists("{}.tmp0.mkv".format(output)):
