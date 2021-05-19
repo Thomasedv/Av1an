@@ -23,7 +23,9 @@ An easy way to start using VVC / AV1 / HEVC / H264 / VP9 / VP8 encoding. AOM, RA
 
      pip install git+https://github.com/Thomasedv/Av1an
 
-See [Install](#Install) section below for more details. Av1an relies on external program to function.  
+See [Install](#Install) section below for more details. Av1an relies on external program to function.
+
+This is a fork of [this](https://github.com/master-of-zen/Av1an) repository. You may have been looking for that one in the first place.
 
 <h2 align="center">Examples</h2>
 
@@ -213,6 +215,13 @@ With your own parameters:
 -   Building encoding queue with bigger files first, minimizing waiting for the last scene to encode.
 -   Both video and audio transcoding with FFmpeg.
 -   Logging of the progress of all encoders.
+-   You can process a folder of files by using the folder as input, by ending the input name with `\ ` or `/`: 
+
+    - `av1an -i folder\ ` or `av1an -i folder/ `
+
+    - The same can be done for temporary folders (where av1an saves logs and temporary files for each input file)
+    - `av1an -i folder\  --temp temp_folder\ ` or `av1an -i folder/ --temp temp_folder/`
+
 
 # Install
 
@@ -245,6 +254,7 @@ With your own parameters:
     - Clone Repo or Download from Releases
         
         `python setup.py install`
+
 
 -   Also:
     On Ubuntu systems, the packages `python3-opencv` and `libsm6` are required
