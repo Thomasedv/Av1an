@@ -19,14 +19,27 @@
 
 An easy way to start using VVC / AV1 / HEVC / H264 / VP9 / VP8 encoding. AOM, RAV1E, SVT-AV1, SVT-VP9, VPX, x265, x264, VTM(Experimental) are supported.
 
+<h2 align="center">Quick Install</h2>
+
+     pip install git+https://github.com/Thomasedv/Av1an
+
+See [Install](#Install) section below for more details. Av1an relies on external program to function.  
+
+<h2 align="center">Examples</h2>
+
 Example with default parameters:
 
     av1an -i input
 
+Simple target quality code:
+
+    av1an -i input --target_quality 95 --vmaf_path "vmaf_v0.6.1.json"
+
+
 With your own parameters:
 
-    av1an -i input -enc aom -v "--cpu-used=3 --end-usage=q --cq-level=30 --threads=8" -w 10
-    --split_method aom_keyframes --target_quality 95 --vmaf_path "vmaf_v0.6.1.pkl" 
+    av1an -i input -enc aom -v " --cpu-used=3 --end-usage=q --cq-level=30 --threads=8 " -w 10
+    --split_method aom_keyframes --target_quality 95 --vmaf_path "vmaf_v0.6.1.json" 
     -min_q 20 -max_q 60 -ff "-vf scale=-1:1080" -a "-c:a libopus -ac 2 -b:a 192k" 
     -s scenes.csv -log my_log -o output
 
@@ -201,11 +214,10 @@ With your own parameters:
 -   Both video and audio transcoding with FFmpeg.
 -   Logging of the progress of all encoders.
 
-## Install
+# Install
 
 -   Prerequisites:
-    -   [Windows Prebuilds](https://ci.appveyor.com/project/master-of-zen/av1an/build/artifacts)
-    -   [Install Python3](https://www.python.org/downloads/) <br>
+    -   [Install Python3.7+](https://www.python.org/downloads/) <br>
         When installing under Windows, select the option `add Python to PATH` in the installer
     -   [Install FFmpeg](https://ffmpeg.org/download.html)
     -   Recommended to install vapoursynth with lsmash for faster and better processing
@@ -225,50 +237,17 @@ With your own parameters:
     -   [lsmash](https://github.com/VFR-maniac/L-SMASH-Works)
     -   [mkvmerge](https://mkvtoolnix.download/)
 
--   With a package manager:
+-   Manual Av1an install: 
+    - With pip
+      
+        `pip install git+https://github.com/Thomasedv/Av1an`        
 
-    -   [PyPI](https://pypi.org/project/Av1an/)
-    -   [AUR](https://aur.archlinux.org/packages/python-av1an/)
-
--   Manually:
-    -   Clone Repo or Download from Releases
-    -   `python setup.py install`
+    - Clone Repo or Download from Releases
+        
+        `python setup.py install`
 
 -   Also:
     On Ubuntu systems, the packages `python3-opencv` and `libsm6` are required
-
-## Docker
-
-Av1an can be run in a Docker container with the following command if you are in the current directory
-
-```bash
-docker run -v "$(pwd)":/videos --user $(id -u):$(id -g) -it --rm masterofzen/av1an:latest -i S01E01.mkv {options}
-```
-
-Docker can also be built by using
-
-```bash
-docker build -t "av1an" .
-```
-
-To specify a different directory to use you would replace $(pwd) with the directory
-
-```bash
-docker run -v /c/Users/masterofzen/Videos:/videos --user $(id -u):$(id -g) -it --rm masterofzen/av1an:latest -i S01E01.mkv {options}
-```
-
-### Docker tags
-
-The docker image has the following tags
-
-|    Tag    | Description                                           |
-| :-------: | ----------------------------------------------------- |
-|   latest  | Contains the latest stable av1an version release      |
-|   master  | Contains the latest av1an commit to the master branch |
-| sha-##### | Contains the commit of the hash that is referenced    |
-|    #.##   | Stable av1an version release                          |
-
-The --user flag is required to avoid permission issues with the docker container not being able to write to the location, if you get permission issues ensure your user has access to the folder that you are using to encode.
 
 ### Support the developer (The original creator: master-of-zen)
 
