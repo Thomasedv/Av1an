@@ -21,7 +21,7 @@ An easy way to start using VVC / AV1 / HEVC / H264 / VP9 / VP8 encoding. AOM, RA
 
 <h2 align="center">Quick Install</h2>
 
-     pip install git+https://github.com/Thomasedv/Av1an
+    pip install git+https://github.com/Thomasedv/Av1an
 
 See [Install](#Install) section below for more details. Av1an relies on external program to function.
 

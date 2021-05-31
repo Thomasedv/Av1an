@@ -111,7 +111,7 @@ class Queue:
                 log(f"Fps: {round(encoded_frames / enc_time, 4)} Time: {enc_time} sec.")
                 return
 
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, SystemExit):
                 chunk.cancel = True
                 self.status = 'FATAL'
                 return
