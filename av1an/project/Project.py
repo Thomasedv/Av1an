@@ -160,7 +160,6 @@ class Project(object):
             if not prompt or prompt.lower() not in ('y', 'yes'):
                 terminate()
 
-
     def load_project_from_file(self, path_string):
         """
         Loads projedt attributes from json to this class

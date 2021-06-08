@@ -6,11 +6,16 @@ from subprocess import Popen
 from av1an.logger import log
 from av1an.vapoursynth import compose_vapoursynth_pipe
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
 if sys.platform == "linux":
     from os import mkfifo
 
 
-def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
+def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp, quiet):
     """
     Running FFMPEG detection on source video for segmenting.
     Usually the optimal threshold is 0.1 - 0.3 but it can vary a lot
@@ -24,6 +29,18 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
     log(f"Is Vapoursynth input: {is_vs}")
     scenes = []
     frame: int = 0
+
+    total = total_frames
+    tqdm_bar = None
+    if (not quiet) and (not (tqdm is None)):
+        tqdm_bar = tqdm(
+            total=total,
+            initial=0,
+            dynamic_ncols=True,
+            unit="fr",
+            leave=True,
+            smoothing=0.2,
+        )
 
     if is_vs:
         if sys.platform == "linux":
@@ -54,6 +71,7 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
     )
 
+    frame_count = 0
     while True:
         line = pipe.stdout.readline().strip()
         if len(line) == 0 and pipe.poll() is not None:
@@ -65,6 +83,10 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
             match = re.findall(r":(\d+)", line)
             if match:
                 frame = int(match[0])
+                if frame > frame_count:
+                    if tqdm_bar is not None:
+                        tqdm_bar.update(frame - frame_count)
+                    frame_count = frame
                 continue
 
         if "score" in line:
@@ -77,7 +99,8 @@ def ffmpeg(video, threshold, min_scene_len, total_frames, is_vs, temp):
     if pipe.returncode != 0 and pipe.returncode != -2:
         print(f"\n:: Error in ffmpeg scenedetection {pipe.returncode}")
         print("\n".join(scenes))
-
+    if tqdm_bar is not None:
+        tqdm_bar.close()
     if is_vs:
         vspipe_process.wait()
 

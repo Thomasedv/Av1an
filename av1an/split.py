@@ -211,11 +211,11 @@ def calc_split_locations(project: Project) -> List[int]:
     elif project.split_method == "ffmpeg":
         sc = ffmpeg(project.input, project.threshold, project.min_scene_len,
                     project.get_frames(), project.is_vs,
-                    project.temp,
+                    project.temp, project.quiet
                     )
 
     # Write scenes to file
-    if project.scenes:
+    if project.scenes is not None:
         write_scenes_to_file(sc, project.get_frames(), project.scenes)
 
     return sc
