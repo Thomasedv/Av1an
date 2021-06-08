@@ -228,7 +228,7 @@ class Project(object):
         done_path = self.temp / "done.json"
         self.resume = self.resume and done_path.exists()
 
-        if not self.resume and self.temp.exists():
+        if not self.resume and done_path.exists():
             prompt = input(f":: Temp folder already exists, did you intend to resume? ([y]/n):")
             if not prompt or prompt.lower() not in ('n', 'no'):
                 self.resume = False

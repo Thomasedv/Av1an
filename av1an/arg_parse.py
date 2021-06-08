@@ -85,7 +85,7 @@ class Args:
             "--temp", type=str, default=None, help="Set temp folder path"
         )
         io_group.add_argument(
-            "--output_file", "-o", type=str, default=None, help="Specify output file"
+            "--output-file", "-o", type=str, default=None, help="Specify output file"
         )
         io_group.add_argument(
             "--mkvmerge",
@@ -122,7 +122,7 @@ class Args:
         # Splitting
         split_group = parser.add_argument_group("Splitting")
         split_group.add_argument(
-            "--chunk_method",
+            "--chunk-method",
             "-cm",
             type=str,
             default=None,
@@ -133,14 +133,15 @@ class Args:
             "--scenes", "-s", type=str, default=None, help="File location for scenes"
         )
         split_group.add_argument(
-            "--split_method",
+            "--split-method",
+            "-sm",
             type=str,
             default="pyscene",
             help="Specify splitting method",
             choices=["none", "pyscene", "aom_keyframes", "ffmpeg"],
         )
         split_group.add_argument(
-            "--extra_split",
+            "--extra-split",
             "-xs",
             type=int,
             default=240,
@@ -152,7 +153,7 @@ class Args:
             "--threshold", "-tr", type=float, default=35, help="PySceneDetect Threshold"
         )
         split_group.add_argument(
-            "--min_scene_len",
+            "--min-scene-len",
             type=int,
             default=60,
             help="Minimum number of frames in a split",
@@ -160,7 +161,7 @@ class Args:
 
         # AOM Keyframe split
         split_group.add_argument(
-            "--reuse_first_pass",
+            "--reuse-first-pass",
             help="Reuse the first pass from aom_keyframes split on the chunks",
             action="store_true",
         )
@@ -176,11 +177,11 @@ class Args:
             choices=[1, 2],
         )
         encode_group.add_argument(
-            "--video_params", "-v", type=str, default=None, help="encoding settings"
+            "--video-params", "-v", type=str, default=None, help="encoding settings"
         )
         encode_group.add_argument(
             "--encoder",
-            "-enc",
+            "-e",
             type=str,
             default="aom",
             help="Choosing encoder",
@@ -199,7 +200,7 @@ class Args:
             "--workers", "-w", type=int, default=0, help="Number of workers"
         )
         encode_group.add_argument(
-            "--no_check", "-n", help="Do not check encodings", action="store_true"
+            "--no-check", "-n", help="Do not check encodings", action="store_true"
         )
         encode_group.add_argument(
             "--force",
@@ -213,14 +214,14 @@ class Args:
             "--ffmpeg", "-ff", type=str, default="", help="FFmpeg commands"
         )
         ffmpeg_group.add_argument(
-            "--audio_params",
+            "--audio-params",
             "-a",
             type=str,
             default="-c:a copy",
             help="FFmpeg audio settings",
         )
         ffmpeg_group.add_argument(
-            "--pix_format",
+            "--pix-format",
             "-fmt",
             type=str,
             default="yuv420p10le",
@@ -233,10 +234,10 @@ class Args:
             "--vmaf", help="Calculating vmaf after encode", action="store_true"
         )
         vmaf_group.add_argument(
-            "--vmaf_path", type=Path, default=None, help="Path to vmaf models"
+            "--vmaf-path", type=Path, default=None, help="Path to vmaf models"
         )
         vmaf_group.add_argument(
-            "--vmaf_res",
+            "--vmaf-res",
             type=str,
             default="1920x1080",
             help="Resolution used in vmaf calculation",
@@ -247,9 +248,9 @@ class Args:
 
         # Target Quality
         tq_group = parser.add_argument_group("Target Quality")
-        tq_group.add_argument("--target_quality", type=float, help="Value to target")
+        tq_group.add_argument("--target-quality", type=float, help="Value to target")
         tq_group.add_argument(
-            "--target_quality_method",
+            "--target-quality-method",
             type=str,
             default="per_shot",
             help="Method selection for target quality",
@@ -262,24 +263,24 @@ class Args:
             help="Number of probes to make for target_quality",
         )
         tq_group.add_argument(
-            "--min_q", type=int, default=None, help="Min q for target_quality"
+            "--min-q", type=int, default=None, help="Min q for target_quality"
         )
         tq_group.add_argument(
-            "--max_q", type=int, default=None, help="Max q for target_quality"
+            "--max-q", type=int, default=None, help="Max q for target_quality"
         )
         tq_group.add_argument(
-            "--vmaf_plots",
+            "--vmaf-plots",
             help="Make plots of probes in temp folder",
             action="store_true",
         )
         tq_group.add_argument(
-            "--probing_rate",
+            "--probing-rate",
             type=int,
             default=4,
             help="Framerate for probes, 0 - original",
         )
         tq_group.add_argument(
-            "--vmaf_filter",
+            "--vmaf-filter",
             type=str,
             default=None,
             help="Filter applied to source at vmaf calcualation, use if you crop source",
