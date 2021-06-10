@@ -10,12 +10,19 @@ from av1an.logger import log
 from av1an.project import Project
 
 
+def kill_upipes(pipes):
+    for pipe in pipes:
+        if pipe.poll() is None:
+            pipe.kill()
+
+
 def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
     encoder_history = deque(maxlen=20)
 
     while True:
         if chunk.cancel:
             pipe.kill()
+            kill_upipes(utility)
             return
 
         line = pipe.stdout.readline().strip()
@@ -26,17 +33,14 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
         if line:
             encoder_history.append(line)
 
+    kill_upipes(utility)
     for u_pipe in utility:
         utility_errors = []
         u_error = u_pipe.stderr.readlines()
         if u_error:
             utility_errors.extend(u_error)
-
-        out = "Pipes errors:" + "\n".join(utility_errors)
-        log(out)
-
-        if u_pipe.poll() is None:
-            u_pipe.kill()
+            out = "Pipes errors:" + "\n".join(utility_errors)
+            log(out)
 
     if pipe.returncode != 0 and pipe.returncode != -2:
         if pipe.returncode == 3221225786:
@@ -74,6 +78,7 @@ def process_encoding_pipe(
     while True:
         if chunk.cancel:
             pipe.kill()
+            kill_upipes(utility)
             return
 
         line = pipe.stdout.readline().strip()
@@ -94,9 +99,7 @@ def process_encoding_pipe(
         if line:
             encoder_history.append(line)
 
-    for u_pipe in utility:
-        if u_pipe.poll() is None:
-            u_pipe.kill()
+    kill_upipes(utility)
 
     if pipe.returncode != 0 and pipe.returncode != -2:  # -2 is Ctrl+C for aom
         if pipe.returncode == 3221225786:

@@ -140,12 +140,14 @@ class Encoder(ABC):
         ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd,
                                            stdout=PIPE,
                                            stderr=PIPE,
+                                           text=True,
                                            creationflags=priority)
 
         ffmpeg_pipe = subprocess.Popen(filter_cmd,
                                        stdin=ffmpeg_gen_pipe.stdout,
                                        stdout=PIPE,
                                        stderr=PIPE,
+                                       text=True,
                                        creationflags=priority
                                        )
 
@@ -154,7 +156,7 @@ class Encoder(ABC):
             stdin=ffmpeg_pipe.stdout,
             stdout=PIPE,
             stderr=STDOUT,
-            universal_newlines=True,
+            text=True,
             creationflags=priority
         )
 
