@@ -113,9 +113,15 @@ def frame_probe(video: Union[Chunk, Project]):
     return total
 
 
+target_quality = {}
+
+
 # TODO: Add check for VFR, make Av1an create normalized stream
 def quality_probe(chunk, project, q, params=None):
+    pass
 
+
+def vmaf_probe(chunk, project, q, params=None):
     pass
 
 

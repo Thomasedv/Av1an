@@ -28,7 +28,7 @@ jobs:
         include:
           - name: baseline
             flags: ""
-          - name: target-quality
+          - name: target_quality
             flags: --target-quality 95
           - name: chunk-hybrid
             enc: aom
