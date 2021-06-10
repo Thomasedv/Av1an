@@ -34,13 +34,13 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
             encoder_history.append(line)
 
     kill_upipes(utility)
-    for u_pipe in utility:
-        utility_errors = []
-        u_error = u_pipe.stderr.readlines()
-        if u_error:
-            utility_errors.extend(u_error)
-            out = "Pipes errors:" + "\n".join(utility_errors)
-            log(out)
+    # for u_pipe in utility:
+    #     utility_errors = []
+    #     u_error = u_pipe.stderr.readlines()
+    #     if u_error:
+    #         utility_errors.extend(u_error)
+    #         out = "Pipes errors:" + "\n".join(utility_errors)
+    #         log(out)
 
     if pipe.returncode != 0 and pipe.returncode != -2:
         if pipe.returncode == 3221225786:

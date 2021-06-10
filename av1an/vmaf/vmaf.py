@@ -94,6 +94,8 @@ class VMAF:
         if fl_path is None:
             fl_path = chunk.fake_input_path.with_name(encoded.stem).with_suffix(".json")
         fl = fl_path.as_posix()
+        fl = fl.replace('\\', '/')
+        fl = fl.replace(':','\\:')
 
         cmd_in = (
             "ffmpeg",
