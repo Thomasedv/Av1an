@@ -243,7 +243,7 @@ class Args:
             help="Resolution used in vmaf calculation",
         )
         vmaf_group.add_argument(
-            "--n_threads", type=int, default=None, help="Threads for vmaf calculation"
+            "--n-threads", type=int, default=None, help="Threads for vmaf calculation"
         )
 
         # Target Quality

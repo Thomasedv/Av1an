@@ -28,14 +28,14 @@ jobs:
         include:
           - name: baseline
             flags: ""
-          - name: target_quality
-            flags: --target_quality 95
-          - name: chunk_hybrid
+          - name: target-quality
+            flags: --target-quality 95
+          - name: chunk-hybrid
             enc: aom
-            flags: --chunk_method hybrid
-          - name: chunk_select
+            flags: --chunk-method hybrid
+          - name: chunk-select
             enc: aom
-            flags: --chunk_method select
+            flags: --chunk-method select
           - name: scenes
             enc: aom
             flags: -s scenes.json
@@ -45,15 +45,15 @@ jobs:
           - name: vmaf
             enc: aom
             flags: --vmaf
-          - name: vmaf_plots
+          - name: vmaf-plots
             enc: aom
-            flags: --vmaf_plots
-          - name: extra_splits
+            flags: --vmaf-plots
+          - name: extra-splits
             enc: aom
             flags: -xs 10
-          - name: split_aom_keyframes
+          - name: split-aom-keyframes
             enc: aom
-            flags: --split_method aom_keyframes
+            flags: --split-method aom_keyframes
           - name: video_settings
             enc: aom
             flags: -v " --cpu-used=3 --end-usage=q --cq-level=30 --threads=8 "
@@ -83,7 +83,7 @@ jobs:
           tar xf video.tar.gz
       - name: Testing ${{ matrix.name }}
         run: |
-          python ./av1an.py -i bus_cif.y4m -enc ${{ matrix.enc }} -tr 20 --keep -o "bus_cif.mkv" ${{ matrix.flags }}
+          python ./av1an.py -i bus_cif.y4m -e ${{ matrix.enc }} -tr 20 --keep -o "bus_cif.mkv" ${{ matrix.flags }}
           du -h bus_cif.mkv
           tree -a
 
