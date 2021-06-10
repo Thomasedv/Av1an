@@ -2,6 +2,7 @@ import concurrent
 import concurrent.futures
 import sys
 import time
+import traceback
 from pathlib import Path
 
 from av1an.chunk import Chunk
@@ -123,6 +124,7 @@ class Queue:
                     "-"*10,
                 )
                 print(f"::{msg1}\n::{msg2}\n{msg3}")
+                traceback.print_exc()
 
                 # Log if error didn't come from a pipe crash
                 if not isinstance(e, RuntimeError):
@@ -132,6 +134,7 @@ class Queue:
         msg1 = f"Chunk #{chunk.index} failed more than 3 times, shutting down thread"
         log(msg1)
         print(f"::{msg1}")
+        chunk.cancel = True
         self.status = "FATAL"
 
     def frame_check_output(

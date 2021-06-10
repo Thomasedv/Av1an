@@ -1,4 +1,5 @@
 import sys
+import traceback
 from collections import deque
 from subprocess import Popen
 from typing import Iterable
@@ -27,9 +28,10 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
 
     for u_pipe in utility:
         utility_errors = []
-        u_error = u_pipe.stdout.readlines()
+        u_error = u_pipe.stderr.readlines()
         if u_error:
             utility_errors.extend(u_error)
+
         out = "Pipes errors:" + "\n".join(utility_errors)
         log(out)
 
@@ -43,14 +45,14 @@ def process_pipe(pipe, chunk: Chunk, utility: Iterable[Popen]):
         utility_errors = []
 
         for u_pipe in utility:
-            u_error = u_pipe.stdout.readlines()
+            u_error = u_pipe.stderr.readlines()
             if u_error:
                 utility_errors.extend(u_error)
 
         msg1 = f"Encoder encountered an error: {pipe.returncode}"
         msg2 = f"Chunk: {chunk.index}"
         msg3 = "\n".join(encoder_history)
-
+        log(traceback.format_exc())
         if utility_errors:
             msg4 = "Pipes errors:" + "\n".join(utility_errors)
             log(msg1, msg2, 'Exception was:\n'+msg3, msg4)
@@ -103,7 +105,7 @@ def process_encoding_pipe(
         utility_errors = []
 
         for u_pipe in utility:
-            u_error = u_pipe.stdout.readlines()
+            u_error = u_pipe.stderr.readlines()
             if u_error:
                 utility_errors.extend(u_error)
 

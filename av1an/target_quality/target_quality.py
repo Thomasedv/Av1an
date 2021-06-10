@@ -693,8 +693,7 @@ class TargetQuality:
         ffmpeg_gen_pipe = subprocess.Popen(
             ffmpeg_gen_cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            stderr=subprocess.PIPE,
             creationflags=self.priority
         )
 
@@ -702,8 +701,7 @@ class TargetQuality:
             command[0],
             stdin=ffmpeg_gen_pipe.stdout,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
+            stderr=subprocess.PIPE,
             creationflags=self.priority,
         )
 

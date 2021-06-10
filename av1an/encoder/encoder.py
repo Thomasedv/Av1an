@@ -137,11 +137,17 @@ class Encoder(ABC):
 
         priority = get_project_priority(a)
 
-        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=priority)
+        ffmpeg_gen_pipe = subprocess.Popen(c.ffmpeg_gen_cmd,
+                                           stdout=PIPE,
+                                           stderr=PIPE,
+                                           creationflags=priority)
 
-        ffmpeg_pipe = subprocess.Popen(
-            filter_cmd, stdin=ffmpeg_gen_pipe.stdout, stdout=PIPE, stderr=STDOUT, universal_newlines=True, creationflags=priority
-        )
+        ffmpeg_pipe = subprocess.Popen(filter_cmd,
+                                       stdin=ffmpeg_gen_pipe.stdout,
+                                       stdout=PIPE,
+                                       stderr=PIPE,
+                                       creationflags=priority
+                                       )
 
         pipe = subprocess.Popen(
             enc_cmd,

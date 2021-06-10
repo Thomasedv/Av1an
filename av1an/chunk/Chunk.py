@@ -44,6 +44,12 @@ class Chunk:
         self.probing_rate = None
         self.boundaries = boundaries
 
+    def __repr__(self):
+        return f"Chunk(name={self.index:05d}, frames={self.frames:d})"
+
+    def __str__(self):
+        return f"Chunk(name={self.index:05d}, frames={self.frames:d})"
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Converts this chunk to a dictionary for easy json serialization
