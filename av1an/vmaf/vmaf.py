@@ -84,6 +84,70 @@ class VMAF:
             fl = json.load(f)
             return fl
 
+    def new_call_vmaf(
+            self, chunk: Chunk, encoded: Path, vmaf_rate: int = None, pts_rate: int = 2, fl_path: Path = None
+    ):
+        """
+        Runs vmaf for Av1an
+        """
+
+        if fl_path is None:
+            fl_path = chunk.fake_input_path.with_name(encoded.stem).with_suffix(".json")
+        fl = fl_path.as_posix()
+        fl = fl.replace('\\', '/')
+        fl = fl.replace(':', '\\:')
+
+        cmd_in = (
+            "ffmpeg",
+            "-loglevel",
+            "warning",
+            "-y",
+            "-thread_queue_size",
+            "1024",
+            "-hide_banner",
+            "-r",
+            "60",
+            "-i",
+            encoded.as_posix(),
+            "-r",
+            "60",
+            "-i",
+            "-",
+        )
+
+        filter_complex = ("-vsync", "0", "-filter_complex",)
+
+        # Change framerate of comparison to framerate of probe
+        n_subsamples = f":n_subsample={vmaf_rate}" if vmaf_rate else ""
+
+        distorted = f"[0:v]scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS,setpts={pts_rate}*PTS[distorted];"
+
+        ref = fr"[1:v]{self.vmaf_filter}scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[ref];"
+
+        vmaf_filter = f"[distorted][ref]libvmaf=log_fmt='json'{n_subsamples}:eof_action=endall:log_path={shlex.quote(fl)}{self.model}{self.n_threads}"
+
+        cmd_out = ("-f", "null", "-")
+
+        cmd = (*cmd_in, *filter_complex, distorted + ref + vmaf_filter, *cmd_out)
+
+        ffmpeg_gen_pipe = subprocess.Popen(
+            chunk.ffmpeg_gen_cmd, stdout=PIPE, stderr=PIPE, text=True, creationflags=self.priority
+        )
+
+        pipe = subprocess.Popen(
+            cmd,
+            stdin=ffmpeg_gen_pipe.stdout,
+            stdout=PIPE,
+            stderr=STDOUT,
+            universal_newlines=True,
+            creationflags=self.priority,
+        )
+
+        utility = (ffmpeg_gen_pipe,)
+        process_pipe(pipe, chunk, utility)
+
+        return fl_path
+
     def call_vmaf(
             self, chunk: Chunk, encoded: Path, vmaf_rate: int = None, fl_path: Path = None
     ):

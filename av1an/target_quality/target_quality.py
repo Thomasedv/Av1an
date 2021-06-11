@@ -78,6 +78,100 @@ class TargetQuality:
         log(f"Probes: {str(sorted(vmaf_cq))[1:-1]}{sk}")
         log(f"Target Q: {target_q} VMAF: {round(target_vmaf, 2)}")
 
+    def new_per_shot_target_quality(self, chunk: Chunk):
+        """
+        :type: Chunk chunk to probe
+        :rtype: int q to use
+        """
+        # TODO: Refactor this mess
+
+        vmaf_cq = []
+        frames = chunk.frames
+
+        chunk.probing_rate = self.project.probing_rate
+
+        if self.probes < 3:
+            return self.fast_search(chunk)
+
+        q_list = []
+
+        # Make middle probe
+        middle_point = (self.min_q + self.max_q) // 2
+        q_list.append(middle_point)
+        last_q = middle_point
+
+        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, last_q))
+        vmaf_cq.append((score, last_q))
+
+        # Initialize search boundary
+        vmaf_lower = score
+        vmaf_upper = score
+        vmaf_cq_lower = last_q
+        vmaf_cq_upper = last_q
+
+        # Branch
+        if score < self.target:
+            next_q = self.min_q
+            q_list.append(self.min_q)
+        else:
+            next_q = self.max_q
+            q_list.append(self.max_q)
+
+        # Edge case check
+        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, next_q))
+        vmaf_cq.append((score, next_q))
+
+        if (next_q == self.min_q and score < self.target) or (
+                next_q == self.max_q and score > self.target
+        ):
+            self.log_probes(
+                vmaf_cq,
+                frames,
+                chunk.name,
+                next_q,
+                score,
+                chunk.probing_rate,
+                skip="low" if score < self.target else "high",
+            )
+            return next_q
+
+        # Set boundary
+        if score < self.target:
+            vmaf_lower = score
+            vmaf_cq_lower = next_q
+        else:
+            vmaf_upper = score
+            vmaf_cq_upper = next_q
+
+        # VMAF search
+        for _ in range(self.probes - 2):
+            new_point = self.weighted_search(
+                vmaf_cq_lower, vmaf_lower, vmaf_cq_upper, vmaf_upper, self.target
+            )
+            if new_point in [x[1] for x in vmaf_cq]:
+                break
+
+            q_list.append(new_point)
+            score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, new_point))
+            vmaf_cq.append((score, new_point))
+
+            # Update boundary
+            if score < self.target:
+                vmaf_lower = score
+                vmaf_cq_lower = new_point
+            else:
+                vmaf_upper = score
+                vmaf_cq_upper = new_point
+
+        q, q_vmaf = self.get_target_q(vmaf_cq, self.target)
+        self.log_probes(vmaf_cq, frames, chunk.name, q, q_vmaf, chunk.probing_rate)
+        # log(f'Scene_score {self.get_scene_scores(chunk, self.ffmpeg_pipe)}')
+        # Plot Probes
+        if self.make_plots and len(vmaf_cq) > 3:
+            self.plot_probes(vmaf_cq, chunk, frames)
+
+        return q
+
     def per_shot_target_quality(self, chunk: Chunk):
         """
         :type: Chunk chunk to probe
@@ -303,6 +397,27 @@ class TargetQuality:
         new_point = int(round(num1 * (dif1 / tot) + (num2 * (dif2 / tot))))
         return new_point
 
+    def new_vmaf_probe(self, chunk: Chunk, q):
+        """
+        Calculates vmaf and returns path to json file
+
+        :param chunk: the Chunk
+        :param q: Value to make probe
+        :param project: the Project
+        :return : path to json file with vmaf scores
+        """
+
+        n_threads = self.n_threads if self.n_threads else self.auto_vmaf_threads()
+        cmd = self.new_probe_cmd(
+            chunk, q, self.ffmpeg_pipe, self.encoder, chunk.probing_rate, n_threads
+        )
+        pipe, utility = self.make_pipes(chunk.ffmpeg_gen_cmd, cmd)
+        process_pipe(pipe, chunk, utility)
+        fl = self.vmaf_runner.new_call_vmaf(
+            chunk, self.gen_probes_names(chunk, q), vmaf_rate=chunk.sampling_rate, pts_rate=chunk.probing_rate
+        )
+        return fl
+
     def vmaf_probe(self, chunk: Chunk, q):
         """
         Calculates vmaf and returns path to json file
@@ -352,6 +467,231 @@ class TargetQuality:
             q_list = [x for x in q_list if x < q]
 
         return min(q_list, key=lambda x: abs(x - q))
+
+    def new_probe_cmd(
+            self, chunk: Chunk, q: int, ffmpeg_pipe: list, encoder: str, probing_rate: int, n_threads: int
+    ) -> CommandPair:
+        """
+        Generate and return commands for probes at set Q values
+        These are specifically not the commands that are generated
+        by the user or encoder defaults, since these
+        should be faster than the actual encoding commands.
+        These should not be moved into encoder classes at this point.
+        """
+        ffmpeg_pipe_probe = ffmpeg_pipe.copy()
+        try:
+            ffmpeg_pipe_probe[ffmpeg_pipe_probe.index('yuv420p10le')] = 'yuv420p'
+        except ValueError:
+            pass
+
+        pipe = [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            "-",
+            "-vf",
+            f"select=not(mod(n\\,{probing_rate})),setpts={1 / probing_rate}*PTS",
+            # f"setpts={1/probing_rate}*PTS",
+            *ffmpeg_pipe,
+        ]
+        probe_name = self.gen_probes_names(chunk, q).with_suffix(".ivf").as_posix()
+
+        if encoder == "aom":
+            params = [
+                "aomenc",
+                "--passes=1",
+                f"--threads={n_threads}",
+                "--tile-columns=2",
+                "--tile-rows=1",
+                "--end-usage=q",
+                "-b",
+                "8",
+                "--cpu-used=6",
+                f"--cq-level={q}",
+                "--enable-filter-intra=0",
+                "--enable-smooth-intra=0",
+                "--enable-paeth-intra=0",
+                "--enable-cfl-intra=0",
+                "--enable-obmc=0",
+                "--enable-palette=0",
+                "--enable-overlay=0",
+                "--enable-intrabc=0",
+                "--enable-angle-delta=0",
+                "--reduced-tx-type-set=1",
+                "--enable-dual-filter=0",
+                "--enable-intra-edge-filter=0",
+                "--enable-order-hint=0",
+                "--enable-flip-idtx=0",
+                "--enable-dist-wtd-comp=0",
+                "--enable-rect-tx=0",
+                "--enable-interintra-wedge=0",
+                "--enable-onesided-comp=0",
+                "--enable-interintra-comp=0",
+                "--enable-global-motion=0",
+                "--min-partition-size=32",
+                "--max-partition-size=32",
+            ]
+            cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
+
+        elif encoder == "x265":
+            params = [
+                "x265",
+                "--log-level",
+                "0",
+                "--no-progress",
+                "--y4m",
+                "--frame-threads",
+                f"{n_threads}",
+                "--preset",
+                "fast",
+                "--crf",
+                f"{q}",
+            ]
+            cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
+
+        elif encoder == "rav1e":
+            params = [
+                "rav1e",
+                "-y",
+                "-s",
+                "10",
+                "--threads",
+                f"{n_threads}",
+                "--tiles",
+                "16",
+                "--quantizer",
+                f"{q}",
+                "--low-latency",
+                "--rdo-lookahead-frames",
+                "5",
+                "--no-scene-detection",
+            ]
+            cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
+
+        elif encoder == "vpx":
+            params = [
+                "vpxenc",
+                "-b",
+                "10",
+                "--profile=2",
+                "--passes=1",
+                "--pass=1",
+                "--codec=vp9",
+                f"--threads={n_threads}",
+                "--cpu-used=9",
+                "--end-usage=q",
+                f"--cq-level={q}",
+                "--row-mt=1",
+            ]
+            cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
+
+        elif encoder == "svt_av1":
+            params = [
+                "SvtAv1EncApp",
+                "-i",
+                "stdin",
+                "--lp",
+                f"{n_threads}",
+                "--preset",
+                "8",
+                "-q",
+                f"{q}",
+                "--tile-rows",
+                "1",
+                "--tile-columns",
+                "2",
+                "--hme",
+                "0",
+                "--pred-struct",
+                "0",
+                "--sg-filter-mode",
+                "0",
+                "--enable-restoration-filtering",
+                "0",
+                "--cdef-level",
+                "0",
+                "--disable-dlf",
+                "0",
+                "--mrp-level",
+                "0",
+                "--enable-tpl-la",
+                "0",
+                "--enable-mfmv",
+                "0",
+                "--enable-local-warp",
+                "0",
+                "--enable-global-motion",
+                "0",
+                "--enable-interintra-comp",
+                "0",
+                "--obmc-level",
+                "0",
+                "--rdoq-level",
+                "0",
+                "--filter-intra-level",
+                "0",
+                "--enable-intra-edge-filter",
+                "0",
+                "--enable-pic-based-rate-est",
+                "0",
+                "--pred-me",
+                "0",
+                "--bipred-3x3",
+                "0",
+                "--compound",
+                "0",
+                "--use-default-me-hme",
+                "0",
+                "--ext-block",
+                "0",
+                "--hbd-md",
+                "0",
+                "--palette-level",
+                "0",
+                "--umv",
+                "0",
+                "--tf-level",
+                "3",
+            ]
+            cmd = CommandPair(pipe, [*params, "-b", probe_name])
+
+        elif encoder == "svt_vp9":
+            params = [
+                "SvtVp9EncApp",
+                "-i",
+                "stdin",
+                "--lp",
+                f"{n_threads}",
+                "-enc-mode",
+                "8",
+                "-q",
+                f"{q}",
+            ]
+            # TODO: pipe needs to output rawvideo
+            cmd = CommandPair(pipe, [*params, "-b", probe_name, "-"])
+
+        elif encoder == "x264":
+            params = [
+                "x264",
+                "--log-level",
+                "error",
+                "--demuxer",
+                "y4m",
+                "-",
+                "--no-progress",
+                "--threads",
+                f"{n_threads}",
+                "--preset",
+                "medium",
+                "--crf",
+                f"{q}",
+            ]
+            cmd = CommandPair(pipe, [*params, "-o", probe_name, "-"])
+
+        return cmd
 
     def probe_cmd(
             self, chunk: Chunk, q: int, ffmpeg_pipe: list, encoder: str, probing_rate: int, n_threads: int
