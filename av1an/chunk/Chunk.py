@@ -42,6 +42,7 @@ class Chunk:
         self.per_frame_target_quality_q_list = None
         self.cancel = False
         self.probing_rate = None
+        self.n_subsample = None
         self.boundaries = boundaries
 
     def __repr__(self):

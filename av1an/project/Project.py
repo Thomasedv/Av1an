@@ -76,6 +76,7 @@ class Project(object):
         self.vmaf_plots: bool = None
         self.probing_rate: int = None
         self.n_threads: int = None
+        self.n_subsample: int = None
         self.vmaf_filter: str = None
 
         # VVC

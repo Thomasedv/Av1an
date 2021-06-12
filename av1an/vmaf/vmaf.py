@@ -105,6 +105,7 @@ class VMAF:
             "-thread_queue_size",
             "1024",
             "-hide_banner",
+            "-hwaccel", "auto",
             "-r",
             "60",
             "-i",
@@ -182,13 +183,17 @@ class VMAF:
         filter_complex = ("-vsync", "0", "-filter_complex",)
 
         # Change framerate of comparison to framerate of probe
-        n_subsamples = f":n_subsample={vmaf_rate}" if vmaf_rate else ""
+        select = (
+            f"select=not(mod(n\\,{vmaf_rate})),setpts={1 / vmaf_rate}*PTS,"
+            if vmaf_rate
+            else ""
+        )
 
         distorted = f"[0:v]scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[distorted];"
 
-        ref = fr"[1:v]{self.vmaf_filter}scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[ref];"
+        ref = fr"[1:v]{select}{self.vmaf_filter}scale={self.res}:flags=bicubic:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[ref];"
 
-        vmaf_filter = f"[distorted][ref]libvmaf=log_fmt='json'{n_subsamples}:eof_action=endall:log_path={shlex.quote(fl)}{self.model}{self.n_threads}"
+        vmaf_filter = f"[distorted][ref]libvmaf=log_fmt='json':eof_action=endall:log_path={shlex.quote(fl)}{self.model}{self.n_threads}"
 
         cmd_out = ("-f", "null", "-")
 

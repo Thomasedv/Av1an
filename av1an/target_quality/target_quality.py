@@ -89,7 +89,9 @@ class TargetQuality:
         frames = chunk.frames
 
         chunk.probing_rate = self.project.probing_rate
-
+        chunk.n_subsample = self.project.n_subsample if self.project.n_subsample is not None else self.project.probing_rate
+        # Be extra critical when not using 1 to 1 probing.
+        percentile = 0.2 if chunk.probing_rate >= 2 else 0.25
         if self.probes < 3:
             return self.fast_search(chunk)
 
@@ -100,7 +102,7 @@ class TargetQuality:
         q_list.append(middle_point)
         last_q = middle_point
 
-        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, last_q))
+        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, last_q), percentile)
         vmaf_cq.append((score, last_q))
 
         # Initialize search boundary
@@ -118,7 +120,7 @@ class TargetQuality:
             q_list.append(self.max_q)
 
         # Edge case check
-        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, next_q))
+        score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, next_q), percentile)
         vmaf_cq.append((score, next_q))
 
         if (next_q == self.min_q and score < self.target) or (
@@ -152,7 +154,7 @@ class TargetQuality:
                 break
 
             q_list.append(new_point)
-            score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, new_point))
+            score = VMAF.read_weighted_vmaf(self.new_vmaf_probe(chunk, new_point), percentile)
             vmaf_cq.append((score, new_point))
 
             # Update boundary
@@ -414,7 +416,7 @@ class TargetQuality:
         pipe, utility = self.make_pipes(chunk.ffmpeg_gen_cmd, cmd)
         process_pipe(pipe, chunk, utility)
         fl = self.vmaf_runner.new_call_vmaf(
-            chunk, self.gen_probes_names(chunk, q), vmaf_rate=chunk.sampling_rate, pts_rate=chunk.probing_rate
+            chunk, self.gen_probes_names(chunk, q), vmaf_rate=chunk.n_subsample, pts_rate=chunk.probing_rate
         )
         return fl
 
@@ -719,6 +721,8 @@ class TargetQuality:
             "-",
             "-vf",
             f"select=not(mod(n\\,{probing_rate}))",
+            "-vsync",
+            "0",
             *ffmpeg_pipe,
         ]
         probe_name = self.gen_probes_names(chunk, q).with_suffix(".ivf").as_posix()

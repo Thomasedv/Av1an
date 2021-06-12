@@ -245,6 +245,9 @@ class Args:
         vmaf_group.add_argument(
             "--n-threads", type=int, default=None, help="Threads for vmaf calculation"
         )
+        vmaf_group.add_argument(
+            "--n-subsample", type=int, default=None, help="For additional vmaf performance for vmaf calculation"
+        )
 
         # Target Quality
         tq_group = parser.add_argument_group("Target Quality")
