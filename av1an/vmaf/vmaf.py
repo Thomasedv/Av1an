@@ -170,6 +170,7 @@ class VMAF:
             "-thread_queue_size",
             "1024",
             "-hide_banner",
+            "-hwaccel", "auto",
             "-r",
             "60",
             "-i",

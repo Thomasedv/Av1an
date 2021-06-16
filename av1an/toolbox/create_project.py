@@ -150,10 +150,10 @@ def vmaf_probe(chunk, project, q, params=None):
 
 if __name__ == '__main__':
     # test_input_str = 'test_destiny.mkv'
-    test_input_str = 'death_sample.mkv'
+    # test_input_str = 'death_sample.mkv'
     os.chdir('..')
     os.chdir('..')
-    for test_input_str in [r'C:\Users\thoma\Downloads\00087.mp4', 'death_sample.mkv', 'test_destiny.mkv']:
+    for test_input_str in ['test_destiny.mkv', r'C:\Users\thoma\Downloads\00087.mp4', 'death_sample.mkv']:
         test_project = create_default_project(['-i', test_input_str, '-xs', '300', '--vmaf-path',
                                                'vmaf_v0.6.1.json', '--target-quality', '95'])
 

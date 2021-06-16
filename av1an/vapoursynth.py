@@ -55,7 +55,7 @@ def create_vs_file(temp: Path, source, chunk_method):
         cache_file = (temp / "split" / "cache.lwi").resolve().as_posix()
         script = (
             "from vapoursynth import core\n"
-            "core.max_cache_size=2048\n"
+            "core.max_cache_size=3072\n"
             'core.lsmas.LWLibavSource(r"{}", cachefile="{}", threads=1).set_output()'
         )
 
