@@ -759,6 +759,12 @@ class TargetQuality:
                 "--enable-onesided-comp=0",
                 "--enable-interintra-comp=0",
                 "--enable-global-motion=0",
+                "--max-reference-frames=3",
+                "--cdf-update-mode=2",
+                "--deltaq-mode=0",
+                "--sb-size=64",
+                "--arnr-strength=6",
+                "--enable-restoration=0",
                 "--min-partition-size=32",
                 "--max-partition-size=32",
             ]

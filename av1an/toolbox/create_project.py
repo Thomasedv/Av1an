@@ -153,7 +153,10 @@ if __name__ == '__main__':
     # test_input_str = 'death_sample.mkv'
     os.chdir('..')
     os.chdir('..')
-    for test_input_str in ['test_destiny.mkv', r'C:\Users\thoma\Downloads\00087.mp4', 'death_sample.mkv']:
+    for test_input_str in ['death_sample.mkv',
+                           'test_destiny.mkv',
+                           r'C:\Users\thoma\Downloads\00087.mp4',
+                           ]:
         test_project = create_default_project(['-i', test_input_str, '-xs', '300', '--vmaf-path',
                                                'vmaf_v0.6.1.json', '--target-quality', '95'])
 
@@ -175,40 +178,40 @@ if __name__ == '__main__':
             new_rate = 2
             print(f'Chunk {chunk.index} -- {chunk.name}')
 
-            start = time.time()
-            q_new = new_quality_probe(chunk, test_project, rate=4, nsample=4)
-            end_new = time.time() - start
-            print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {4} | nsample {4}')
-
-            start = time.time()
-            q_new = new_quality_probe(chunk, test_project, rate=4, nsample=2)
-            end_new = time.time() - start
-            print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {4} | nsample {2}')
-
-            start = time.time()
-            q_new = new_quality_probe(chunk, test_project, rate=3, nsample=3)
-            end_new = time.time() - start
-            print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {3} | nsample {3}')
-
             # start = time.time()
-            # q_new = new_quality_probe(chunk, test_project, rate=new_rate, nsample=4)
+            # q_new = new_quality_probe(chunk, test_project, rate=4, nsample=4)
             # end_new = time.time() - start
-            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {4}')
-
+            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {4} | nsample {4}')
+            #
             # start = time.time()
-            # q_new = new_quality_probe(chunk, test_project, rate=1, nsample=2)
+            # q_new = new_quality_probe(chunk, test_project, rate=4, nsample=2)
             # end_new = time.time() - start
-            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {1} | nsample {2}')
-
-            start = time.time()
-            q_new = new_quality_probe(chunk, test_project, rate=new_rate)
-            end_new = time.time() - start
-            print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {new_rate}')
-
-            start = time.time()
-            q_new = new_quality_probe(chunk, test_project, rate=new_rate, nsample=1)
-            end_new = time.time() - start
-            print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {1}')
+            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {4} | nsample {2}')
+            #
+            # start = time.time()
+            # q_new = new_quality_probe(chunk, test_project, rate=3, nsample=3)
+            # end_new = time.time() - start
+            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {3} | nsample {3}')
+            #
+            # # start = time.time()
+            # # q_new = new_quality_probe(chunk, test_project, rate=new_rate, nsample=4)
+            # # end_new = time.time() - start
+            # # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {4}')
+            #
+            # # start = time.time()
+            # # q_new = new_quality_probe(chunk, test_project, rate=1, nsample=2)
+            # # end_new = time.time() - start
+            # # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {1} | nsample {2}')
+            #
+            # start = time.time()
+            # q_new = new_quality_probe(chunk, test_project, rate=new_rate)
+            # end_new = time.time() - start
+            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {new_rate}')
+            #
+            # start = time.time()
+            # q_new = new_quality_probe(chunk, test_project, rate=new_rate, nsample=1)
+            # end_new = time.time() - start
+            # print(f'New target_quality: Q: {q_new} Time {end_new:.1f} | Rate {new_rate} | nsample {1}')
 
             # TLDR: Results: Rate 4
             # New target_quality: Q: 50 Time 146.27769112586975
@@ -216,20 +219,20 @@ if __name__ == '__main__':
             # [23:40:47][log_probes] Probes: (86.15, 55), (92.29, 52), (93.94, 51), (100.0, 35)
             # [23:40:47][log_probes] Target Q: 50 VMAF: 94.27
 
-            start = time.time()
-            q_old = quality_probe(chunk, test_project, rate=new_rate)
-            end_old = time.time() - start
-            print(f'Old target_quality: Q: {q_old} Time {end_old:.1f} | Rate {new_rate} | nsample {new_rate}')
+            # start = time.time()
+            # q_old = quality_probe(chunk, test_project, rate=new_rate)
+            # end_old = time.time() - start
+            # print(f'Old target_quality: Q: {q_old} Time {end_old:.1f} | Rate {new_rate} | nsample {new_rate}')
 
             start = time.time()
             q_old = quality_probe(chunk, test_project, rate=4)
             end_old = time.time() - start
             print(f'Old target_quality: Q: {q_old} Time {end_old:.1f} | Rate {4} | nsample {4}')
 
-            start = time.time()
-            q_old = quality_probe(chunk, test_project, rate=1)
-            end_old = time.time() - start
-            print(f'Old target_quality: Q: {q_old} Time {end_old:.1f} | Rate {1} | nsample {1}')
+            # start = time.time()
+            # q_old = quality_probe(chunk, test_project, rate=1)
+            # end_old = time.time() - start
+            # print(f'Old target_quality: Q: {q_old} Time {end_old:.1f} | Rate {1} | nsample {1}')
 
             # start = time.time()
             # q_new = new_quality_probe(chunk, test_project, rate=1)

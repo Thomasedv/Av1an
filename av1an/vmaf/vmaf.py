@@ -160,7 +160,7 @@ class VMAF:
             fl_path = chunk.fake_input_path.with_name(encoded.stem).with_suffix(".json")
         fl = fl_path.as_posix()
         fl = fl.replace('\\', '/')
-        fl = fl.replace(':','\\:')
+        fl = fl.replace(':', '\\:')
 
         cmd_in = (
             "ffmpeg",
@@ -181,7 +181,7 @@ class VMAF:
             "-",
         )
 
-        filter_complex = ("-vsync", "0", "-filter_complex",)
+        filter_complex = ("-filter_complex",)
 
         # Change framerate of comparison to framerate of probe
         select = (

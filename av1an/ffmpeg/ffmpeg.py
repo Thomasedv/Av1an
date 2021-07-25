@@ -30,9 +30,12 @@ def frame_probe_ffmpeg(source: Path):
         "-",
     ]
     r = subprocess.run(cmd, stdout=PIPE, stderr=PIPE)
+    output = r.stderr.decode("utf-8") + r.stdout.decode("utf-8")
     matches = re.findall(
-        r"frame=\s*([0-9]+)\s", r.stderr.decode("utf-8") + r.stdout.decode("utf-8")
+        r"frame=\s*([0-9]+)\s", output
     )
+    if not matches:
+        log("Frame probe exception", output)
     total = int(matches[-1])
     log("Get frame count with ffmpeg")
     log(f"Frame count: {total}")
