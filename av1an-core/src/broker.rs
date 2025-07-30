@@ -173,8 +173,10 @@ impl Broker<'_> {
                             while let Ok(mut chunk) = rx.recv() {
                                 if terminations_requested.load(Ordering::SeqCst) == 0 {
                                     if let Err(e) = queue.encode_chunk(&mut chunk, worker_id, &terminations_requested, total_chunks) {
+                                        if terminations_requested.load(Ordering::SeqCst)  < 1 {
                                             error!("[chunk {index}] {e}", index = chunk.index);
-                                        tx.send(()).expect("should send successfully");
+                                            tx.send(()).expect("should send successfully");
+                                        }
                                         return Err(());
                                     }
                                 }
@@ -313,6 +315,10 @@ impl Broker<'_> {
                 let res = self.project.create_pipes(chunk, current_pass, worker_id, padding);
                 if let Err((e, frames)) = res {
                     dec_bar(frames);
+
+                    if terminations_requested.load(Ordering::SeqCst) == 1 {
+                        bail!("Encoder failed during shutdown.")
+                    }
 
                     // If user presses CTRL+C more than once, do not let the worker finish
                     if terminations_requested.load(Ordering::SeqCst) > 1 {
