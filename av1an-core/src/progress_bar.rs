@@ -1,14 +1,10 @@
 use std::{fmt::Write, time::Duration};
 
 use indicatif::{
-    HumanBytes,
-    HumanDuration,
-    MultiProgress,
-    ProgressBar,
-    ProgressDrawTarget,
-    ProgressState,
+    HumanBytes, HumanDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState,
     ProgressStyle,
 };
+use num_traits::Float;
 use once_cell::sync::OnceCell;
 
 use crate::{get_done, util::printable_base10_digits, Verbosity};
@@ -213,11 +209,16 @@ pub fn reset_bar_at(pos: u64) {
 pub fn reset_mp_bar_at(pos: u64) {
     if let Some((_, pbs)) = MULTI_PROGRESS_BAR.get() {
         if let Some(pb) = pbs.last() {
-            pb.reset();
             pb.set_position(pos);
             pb.reset_eta();
             pb.reset_elapsed();
         }
+    }
+}
+
+pub fn suspend_progress_and_do<F: FnOnce()>(f: F) {
+    if let Some((mpb, _)) = MULTI_PROGRESS_BAR.get() {
+        mpb.suspend(f)
     }
 }
 
@@ -231,8 +232,18 @@ pub fn init_multi_progress_bar(len: u64, workers: usize, resume_frames: u64, chu
 
         for _ in 1..=workers {
             let pb = ProgressBar::hidden().with_style(
-                ProgressStyle::default_spinner()
-                    .template("{prefix:.dim} {msg}")
+                ProgressStyle::default_bar()
+                    .with_key("fps", move |state: &ProgressState, w: &mut dyn Write| {
+                        let fps = state.per_sec();
+                        if fps == f64::infinity() || fps == 0.0 {
+                            write!(w, " -- ").unwrap();
+                        } else if fps < 1.0 {
+                            write!(w, "{:.2} s/fr", 1.0 / fps).unwrap();
+                        } else {
+                            write!(w, "{fps:.2} fps").unwrap();
+                        }
+                    })
+                    .template("{prefix:.dim} {msg} {wide_bar} | Frame {pos:>6}/{len:6} | {fps:10}")
                     .expect("template is valid"),
             );
             pb.set_prefix(format!("[Idle  {digits:digits$}]"));
@@ -269,6 +280,14 @@ pub fn update_mp_chunk(worker_idx: usize, chunk: usize, padding: usize) {
 pub fn update_mp_msg(worker_idx: usize, msg: String) {
     if let Some((_, pbs)) = MULTI_PROGRESS_BAR.get() {
         pbs[worker_idx].set_message(msg);
+    }
+}
+
+pub fn update_mp_msg_encoder(worker_idx: usize, pass: u8, progress: u64, total: usize) {
+    if let Some((_, pbs)) = MULTI_PROGRESS_BAR.get() {
+        pbs[worker_idx].set_message(format!("Pass {pass}/2 "));
+        pbs[worker_idx].set_length(total as u64);
+        pbs[worker_idx].set_position(progress);
     }
 }
 

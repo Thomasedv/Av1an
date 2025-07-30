@@ -1,3 +1,10 @@
+use anyhow::Context;
+use av1_grain::TransferFunction;
+use av_decoders::VapoursynthDecoder;
+use colored::*;
+use itertools::Itertools;
+use num_traits::cast::ToPrimitive;
+use rand::{prelude::SliceRandom, rng};
 use std::{
     borrow::Cow,
     cmp::{self, Reverse},
@@ -9,67 +16,40 @@ use std::{
     process::{exit, ChildStderr, Command, Stdio},
     sync::{
         atomic::{self, AtomicBool, AtomicUsize},
-        mpsc,
-        Arc,
-        Mutex,
+        mpsc, Arc, Mutex,
     },
     thread::{self, available_parallelism},
 };
-
-use anyhow::Context;
-use av1_grain::TransferFunction;
-use av_decoders::VapoursynthDecoder;
-use colored::*;
-use itertools::Itertools;
-use num_traits::cast::ToPrimitive;
-use rand::{prelude::SliceRandom, rng};
 use tracing::{debug, error, info, warn};
 
 use crate::{
     broker::{Broker, EncoderCrash},
     chunk::Chunk,
     concat::{self, ConcatMethod},
-    create_dir,
-    determine_workers,
+    create_dir, determine_workers,
     ffmpeg::{compose_ffmpeg_pipe, get_num_frames},
-    get_done,
-    init_done,
-    into_vec,
+    get_done, init_done, into_vec,
     metrics::vmaf,
     progress_bar::{
-        finish_progress_bar,
-        inc_bar,
-        inc_mp_bar,
-        init_multi_progress_bar,
-        init_progress_bar,
-        reset_bar_at,
-        reset_mp_bar_at,
-        set_audio_size,
-        update_mp_chunk,
-        update_mp_msg,
+        finish_progress_bar, inc_bar, inc_mp_bar, init_multi_progress_bar, init_progress_bar,
+        reset_bar_at, reset_mp_bar_at, set_audio_size, update_mp_chunk, update_mp_msg_encoder,
         update_progress_bar_estimates,
     },
-    read_chunk_queue,
-    save_chunk_queue,
+    read_chunk_queue, save_chunk_queue,
     scenes::{Scene, SceneFactory, ZoneOptions},
     settings::{EncodeArgs, InputPixelFormat},
     split::segment,
     vapoursynth::create_vs_file,
     zones::parse_zones,
-    ChunkMethod,
-    ChunkOrdering,
-    DashMap,
-    DoneJson,
-    Input,
-    Verbosity,
+    ChunkMethod, ChunkOrdering, DashMap, DoneJson, Input, Verbosity,
 };
 
 #[derive(Debug)]
 pub struct Av1anContext {
-    pub frames:               usize,
-    pub vs_script:            Option<PathBuf>,
-    pub vs_proxy_script:      Option<PathBuf>,
-    pub args:                 EncodeArgs,
+    pub frames: usize,
+    pub vs_script: Option<PathBuf>,
+    pub vs_proxy_script: Option<PathBuf>,
+    pub args: EncodeArgs,
     pub(crate) scene_factory: SceneFactory,
 }
 
@@ -157,8 +137,8 @@ impl Av1anContext {
             init_done(done);
         } else {
             init_done(DoneJson {
-                frames:     AtomicUsize::new(0),
-                done:       DashMap::new(),
+                frames: AtomicUsize::new(0),
+                done: DashMap::new(),
                 audio_done: AtomicBool::new(false),
             });
 
@@ -178,14 +158,8 @@ impl Av1anContext {
         // Create the VapourSynth script file and store the path to it and evaluate it
         let cache_vs_input = |vs_input: &Input| {
             let script_path = match vs_input {
-                Input::VapourSynth {
-                    path, ..
-                } => path.clone(),
-                Input::Video {
-                    path,
-                    is_proxy,
-                    ..
-                } => {
+                Input::VapourSynth { path, .. } => path.clone(),
+                Input::Video { path, is_proxy, .. } => {
                     let (script_path, _) = create_vs_file(
                         &self.args.temp,
                         path,
@@ -201,9 +175,7 @@ impl Av1anContext {
 
             let variables_map = vs_input.as_vspipe_args_hashmap()?;
             let decoder = match vs_input {
-                Input::VapourSynth {
-                    path, ..
-                } => {
+                Input::VapourSynth { path, .. } => {
                     let mut dec = VapoursynthDecoder::from_file(path)?;
                     dec.set_variables(variables_map)?;
                     av_scenechange::Decoder::from_decoder_impl(
@@ -271,12 +243,8 @@ impl Av1anContext {
             res.1,
             fps,
             match format {
-                InputPixelFormat::VapourSynth {
-                    bit_depth,
-                } => format!("{bit_depth} BPC"),
-                InputPixelFormat::FFmpeg {
-                    format,
-                } => format!("{format:?}"),
+                InputPixelFormat::VapourSynth { bit_depth } => format!("{bit_depth} BPC"),
+                InputPixelFormat::FFmpeg { format } => format!("{format:?}"),
             },
             match tfc {
                 TransferFunction::SMPTE2084 => "HDR",
@@ -617,18 +585,14 @@ impl Av1anContext {
                 let (y4m_pipe, source_pipe_stderr, mut ffmpeg_pipe_stderr) =
                     if self.args.ffmpeg_filter_args.is_empty() {
                         match &self.args.input_pix_format {
-                            InputPixelFormat::FFmpeg {
-                                format,
-                            } => {
+                            InputPixelFormat::FFmpeg { format } => {
                                 if self.args.output_pix_format.format == *format {
                                     (source_pipe_stdout, source_pipe_stderr, None)
                                 } else {
                                     create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)?
                                 }
                             },
-                            InputPixelFormat::VapourSynth {
-                                bit_depth,
-                            } => {
+                            InputPixelFormat::VapourSynth { bit_depth } => {
                                 if self.args.output_pix_format.bit_depth == *bit_depth {
                                     (source_pipe_stdout, source_pipe_stderr, None)
                                 } else {
@@ -696,16 +660,13 @@ impl Av1anContext {
                     }
 
                     if let Ok(line) = simdutf8::basic::from_utf8_mut(&mut buf) {
-                        if self.args.verbosity == Verbosity::Verbose && !line.contains('\n') {
-                            update_mp_msg(worker_id, line.trim().to_string());
-                        }
                         // This needs to be done before parse_encoded_frames, as it potentially
                         // mutates the string
                         enc_stderr.push_str(line);
                         enc_stderr.push('\n');
 
-                        if current_pass == chunk.passes {
-                            if let Some(new) = chunk.encoder.parse_encoded_frames(line) {
+                        if let Some(new) = chunk.encoder.parse_encoded_frames(line) {
+                            if current_pass == chunk.passes {
                                 if new > frame {
                                     if self.args.verbosity == Verbosity::Normal {
                                         inc_bar(new - frame);
@@ -714,6 +675,10 @@ impl Av1anContext {
                                     }
                                     frame = new;
                                 }
+                            }
+
+                            if self.args.verbosity == Verbosity::Verbose {
+                                update_mp_msg_encoder(worker_id, current_pass, new, chunk.frames());
                             }
                         }
                     }
@@ -739,11 +704,11 @@ impl Av1anContext {
         if !enc_output.status.success() {
             return Err((
                 EncoderCrash {
-                    exit_status:        enc_output.status,
+                    exit_status: enc_output.status,
                     source_pipe_stderr: source_pipe_stderr.into(),
                     ffmpeg_pipe_stderr: ffmpeg_pipe_stderr.map(Into::into),
-                    stderr:             enc_stderr.into(),
-                    stdout:             enc_output.stdout.into(),
+                    stderr: enc_stderr.into(),
+                    stdout: enc_output.stdout.into(),
                 }
                 .into(),
                 frame,
@@ -774,11 +739,11 @@ impl Av1anContext {
             if let Some(err_str) = err_str {
                 return Err((
                     EncoderCrash {
-                        exit_status:        enc_output.status,
+                        exit_status: enc_output.status,
                         source_pipe_stderr: source_pipe_stderr.into(),
                         ffmpeg_pipe_stderr: ffmpeg_pipe_stderr.map(Into::into),
-                        stderr:             enc_stderr.into(),
-                        stdout:             err_str.into(),
+                        stderr: enc_stderr.into(),
+                        stdout: err_str.into(),
                     }
                     .into(),
                     frame,
@@ -791,9 +756,7 @@ impl Av1anContext {
 
     fn create_encoding_queue(&self, scenes: &[Scene]) -> anyhow::Result<Vec<Chunk>> {
         let mut chunks = match &self.args.input {
-            Input::Video {
-                ..
-            } => match self.args.chunk_method {
+            Input::Video { .. } => match self.args.chunk_method {
                 ChunkMethod::FFMS2
                 | ChunkMethod::LSMASH
                 | ChunkMethod::DGDECNV
@@ -807,9 +770,7 @@ impl Av1anContext {
                 ChunkMethod::Select => self.create_video_queue_select(scenes)?,
                 ChunkMethod::Segment => self.create_video_queue_segment(scenes)?,
             },
-            Input::VapourSynth {
-                path, ..
-            } => {
+            Input::VapourSynth { path, .. } => {
                 self.create_video_queue_vs(scenes, path.as_path(), self.vs_proxy_script.as_deref())?
             },
         };
@@ -893,16 +854,16 @@ impl Av1anContext {
             temp: self.args.temp.clone(),
             index,
             input: Input::Video {
-                path:         src_path.to_path_buf(),
-                temp:         self.args.temp.clone(),
+                path: src_path.to_path_buf(),
+                temp: self.args.temp.clone(),
                 chunk_method: ChunkMethod::Select,
-                is_proxy:     false,
+                is_proxy: false,
             },
             proxy: self.args.proxy.as_ref().map(|proxy| Input::Video {
-                path:         proxy.as_path().to_path_buf(),
-                temp:         self.args.temp.clone(),
+                path: proxy.as_path().to_path_buf(),
+                temp: self.args.temp.clone(),
                 chunk_method: ChunkMethod::Select,
-                is_proxy:     true,
+                is_proxy: true,
             }),
             source_cmd: ffmpeg_gen_cmd,
             proxy_cmd: None,
@@ -973,18 +934,18 @@ impl Av1anContext {
             temp: self.args.temp.clone(),
             index,
             input: Input::VapourSynth {
-                path:        vs_script.to_path_buf(),
+                path: vs_script.to_path_buf(),
                 vspipe_args: self.args.input.as_vspipe_args_vec()?,
                 script_text: self.args.input.as_script_text(
                     self.args.sc_downscale_height,
                     self.args.sc_pix_format,
                     Some(&self.args.scaler),
                 )?,
-                is_proxy:    false,
+                is_proxy: false,
             },
             proxy: if let Some(vs_proxy_script) = vs_proxy_script {
                 Some(Input::VapourSynth {
-                    path:        vs_proxy_script.to_path_buf(),
+                    path: vs_proxy_script.to_path_buf(),
                     vspipe_args: self
                         .args
                         .proxy
@@ -1001,7 +962,7 @@ impl Av1anContext {
                             self.args.sc_pix_format,
                             Some(&self.args.scaler),
                         )?,
-                    is_proxy:    true,
+                    is_proxy: true,
                 })
             } else {
                 None
@@ -1225,16 +1186,16 @@ impl Av1anContext {
         let mut chunk = Chunk {
             temp: self.args.temp.clone(),
             input: Input::Video {
-                path:         PathBuf::from(file),
-                temp:         self.args.temp.clone(),
+                path: PathBuf::from(file),
+                temp: self.args.temp.clone(),
                 chunk_method: ChunkMethod::Segment,
-                is_proxy:     false,
+                is_proxy: false,
             },
             proxy: self.args.proxy.as_ref().map(|proxy| Input::Video {
-                path:         proxy.as_path().to_path_buf(),
-                temp:         self.args.temp.clone(),
+                path: proxy.as_path().to_path_buf(),
+                temp: self.args.temp.clone(),
                 chunk_method: ChunkMethod::Segment,
-                is_proxy:     true,
+                is_proxy: true,
             }),
             source_cmd: ffmpeg_gen_cmd,
             proxy_cmd: None,

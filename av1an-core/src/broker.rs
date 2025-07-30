@@ -18,27 +18,21 @@ use smallvec::SmallVec;
 use thiserror::Error;
 use tracing::{debug, error, warn};
 
+use crate::progress_bar::suspend_progress_and_do;
 use crate::{
     context::Av1anContext,
-    finish_progress_bar,
-    get_done,
+    finish_progress_bar, get_done,
     progress_bar::{
-        dec_bar,
-        inc_mp_bar,
-        update_mp_chunk,
-        update_mp_msg,
-        update_progress_bar_estimates,
+        dec_bar, inc_mp_bar, update_mp_chunk, update_mp_msg, update_progress_bar_estimates,
     },
     util::printable_base10_digits,
-    Chunk,
-    DoneChunk,
-    Instant,
+    Chunk, DoneChunk, Instant,
 };
 
 #[derive(Debug)]
 pub struct Broker<'a> {
     pub chunk_queue: Vec<Chunk>,
-    pub project:     &'a Av1anContext,
+    pub project: &'a Av1anContext,
 }
 
 #[derive(Clone)]
@@ -86,9 +80,9 @@ impl From<String> for StringOrBytes {
 
 #[derive(Error, Debug)]
 pub struct EncoderCrash {
-    pub exit_status:        ExitStatus,
-    pub stdout:             StringOrBytes,
-    pub stderr:             StringOrBytes,
+    pub exit_status: ExitStatus,
+    pub stdout: StringOrBytes,
+    pub stderr: StringOrBytes,
     pub source_pipe_stderr: StringOrBytes,
     pub ffmpeg_pipe_stderr: Option<StringOrBytes>,
 }
@@ -133,9 +127,10 @@ impl Broker<'_> {
                 ctrlc::set_handler(move || {
                     let count = terminations_requested_clone.fetch_add(1, Ordering::SeqCst) + 1;
                     if count == 1 {
-                        error!("Shutting down. Waiting for current workers to finish...");
+                        suspend_progress_and_do(|| warn!("Interrupt received. Waiting for \
+                        workers to finish..."));
                     } else {
-                        error!("Shutting down all workers...");
+                        suspend_progress_and_do(|| error!("Shutting down all workers..."));
                     }
                 })
                 .expect("should set ctrlc handler");
@@ -275,10 +270,13 @@ impl Broker<'_> {
                     inc_mp_bar(chunk.frames() as u64);
 
                     let progress_file = Path::new(&self.project.args.temp).join("done.json");
-                    get_done().done.insert(chunk.name(), DoneChunk {
-                        frames:     chunk.frames(),
-                        size_bytes: output_file.metadata()?.len(),
-                    });
+                    get_done().done.insert(
+                        chunk.name(),
+                        DoneChunk {
+                            frames: chunk.frames(),
+                            size_bytes: output_file.metadata()?.len(),
+                        },
+                    );
 
                     let mut progress_file = File::create(progress_file)?;
                     progress_file.write_all(serde_json::to_string(get_done())?.as_bytes())?;
@@ -352,13 +350,16 @@ impl Broker<'_> {
         let fps = chunk.frames() as f64 / enc_time.as_secs_f64();
 
         let progress_file = Path::new(&self.project.args.temp).join("done.json");
-        get_done().done.insert(chunk.name(), DoneChunk {
-            frames:     chunk.frames(),
-            size_bytes: Path::new(&chunk.output())
-                .metadata()
-                .expect("Unable to get size of finished chunk")
-                .len(),
-        });
+        get_done().done.insert(
+            chunk.name(),
+            DoneChunk {
+                frames: chunk.frames(),
+                size_bytes: Path::new(&chunk.output())
+                    .metadata()
+                    .expect("Unable to get size of finished chunk")
+                    .len(),
+            },
+        );
 
         let mut progress_file = File::create(progress_file)?;
         progress_file.write_all(serde_json::to_string(get_done())?.as_bytes())?;
