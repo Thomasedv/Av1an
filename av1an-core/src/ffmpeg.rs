@@ -44,12 +44,12 @@ struct FfProbeInfo {
 
 #[derive(Debug, Clone, Deserialize)]
 struct FfProbeStreamInfo {
-    pub width:          u32,
-    pub height:         u32,
-    pub pix_fmt:        String,
+    pub width: u32,
+    pub height: u32,
+    pub pix_fmt: String,
     pub color_transfer: Option<String>,
     pub avg_frame_rate: String,
-    pub nb_frames:      Option<usize>,
+    pub nb_frames: Option<usize>,
 }
 
 #[inline]
@@ -73,16 +73,16 @@ pub fn get_clip_info(source: &Path) -> anyhow::Result<ClipInfo> {
         .ok_or_else(|| anyhow::anyhow!("no video streams found in source file"))?;
 
     Ok(ClipInfo {
-        format_info:              InputPixelFormat::FFmpeg {
+        format_info: InputPixelFormat::FFmpeg {
             format: FFPixelFormat::from_str(&stream_info.pix_fmt)?,
         },
-        frame_rate:               parse_frame_rate(&stream_info.avg_frame_rate)?,
-        resolution:               (stream_info.width, stream_info.height),
+        frame_rate: parse_frame_rate(&stream_info.avg_frame_rate)?,
+        resolution: (stream_info.width, stream_info.height),
         transfer_characteristics: match stream_info.color_transfer.as_deref() {
             Some("smpte2084") => av1_grain::TransferFunction::SMPTE2084,
             _ => av1_grain::TransferFunction::BT1886,
         },
-        num_frames:               match stream_info.nb_frames {
+        num_frames: match stream_info.nb_frames {
             Some(nb_frames) => nb_frames,
             None => get_num_frames(source)?,
         },

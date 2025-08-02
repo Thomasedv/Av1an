@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::HashMap};
 
 pub struct MetricStatistics {
     scores: Vec<f64>,
-    cache:  HashMap<String, f64>,
+    cache: HashMap<String, f64>,
 }
 
 impl MetricStatistics {

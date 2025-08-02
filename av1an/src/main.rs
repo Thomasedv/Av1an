@@ -10,26 +10,11 @@ use std::{
 use anyhow::{anyhow, bail, ensure, Context};
 use av1an_core::{
     ffmpeg::FFPixelFormat,
-    hash_path,
-    into_vec,
-    read_in_dir,
+    hash_path, into_vec, read_in_dir,
     vapoursynth::{get_vapoursynth_plugins, VSZipVersion},
-    Av1anContext,
-    ChunkMethod,
-    ChunkOrdering,
-    ConcatMethod,
-    EncodeArgs,
-    Encoder,
-    Input,
-    InputPixelFormat,
-    InterpolationMethod,
-    PixelFormat,
-    ScenecutMethod,
-    SplitMethod,
-    TargetMetric,
-    TargetQuality,
-    Verbosity,
-    VmafFeature,
+    Av1anContext, ChunkMethod, ChunkOrdering, ConcatMethod, EncodeArgs, Encoder, Input,
+    InputPixelFormat, InterpolationMethod, PixelFormat, ScenecutMethod, SplitMethod, TargetMetric,
+    TargetQuality, Verbosity, VmafFeature,
 };
 use clap::{value_parser, CommandFactory, Parser};
 use clap_complete::generate;
@@ -746,7 +731,7 @@ pub struct CliOpts {
     pub target_metric: TargetMetric,
     /// Maximum number of probes allowed for target quality
     #[clap(long, default_value_t = 4, help_heading = "Target Quality")]
-    pub probes:        u32,
+    pub probes: u32,
 
     /// Only use every nth frame for VMAF calculation, while probing.
     ///
@@ -1009,7 +994,7 @@ pub fn parse_cli(args: CliOpts) -> anyhow::Result<Vec<EncodeArgs>> {
             Vec::new()
         };
         let output_pix_format = PixelFormat {
-            format:    args.pix_format,
+            format: args.pix_format,
             bit_depth: args.encoder.get_format_bit_depth(args.pix_format)?,
         };
         let mut copied_params = false;
@@ -1101,28 +1086,25 @@ pub fn parse_cli(args: CliOpts) -> anyhow::Result<Vec<EncodeArgs>> {
             min_scene_len: args.min_scene_len,
             input_pix_format: {
                 match &input {
-                    Input::Video {
-                        path, ..
-                    } if !input.is_vapoursynth_script() => InputPixelFormat::FFmpeg {
-                        format: clip_info.format_info.as_pixel_format().with_context(|| {
-                            format!(
-                                "FFmpeg failed to get pixel format for input video {}",
-                                path.display()
-                            )
-                        })?,
+                    Input::Video { path, .. } if !input.is_vapoursynth_script() => {
+                        InputPixelFormat::FFmpeg {
+                            format: clip_info.format_info.as_pixel_format().with_context(|| {
+                                format!(
+                                    "FFmpeg failed to get pixel format for input video {}",
+                                    path.display()
+                                )
+                            })?,
+                        }
                     },
-                    Input::VapourSynth {
-                        path, ..
-                    }
-                    | Input::Video {
-                        path, ..
-                    } => InputPixelFormat::VapourSynth {
-                        bit_depth: clip_info.format_info.as_bit_depth().with_context(|| {
-                            format!(
-                                "VapourSynth failed to get bit depth for input video {}",
-                                path.display()
-                            )
-                        })?,
+                    Input::VapourSynth { path, .. } | Input::Video { path, .. } => {
+                        InputPixelFormat::VapourSynth {
+                            bit_depth: clip_info.format_info.as_bit_depth().with_context(|| {
+                                format!(
+                                    "VapourSynth failed to get bit depth for input video {}",
+                                    path.display()
+                                )
+                            })?,
+                        }
                     },
                 }
             },

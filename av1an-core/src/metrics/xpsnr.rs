@@ -119,11 +119,11 @@ pub fn run_xpsnr(
             String::from_utf8_lossy(&output.stdout)
         );
         return Err(EncoderCrash {
-            exit_status:        output.status,
+            exit_status: output.status,
             source_pipe_stderr: String::new().into(),
             ffmpeg_pipe_stderr: None,
-            stderr:             output.stderr.into(),
-            stdout:             String::new().into(),
+            stderr: output.stderr.into(),
+            stdout: String::new().into(),
         }
         .into());
     }

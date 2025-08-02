@@ -68,7 +68,7 @@ static CLIP_INFO_CACHE: Lazy<Mutex<HashMap<CacheKey, ClipInfo>>> =
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct CacheKey {
-    input:    Input,
+    input: Input,
     // Not strictly necessary, but allows for proxy to have different values for vspipe_args or
     // chunking method
     is_proxy: bool,
@@ -77,21 +77,21 @@ struct CacheKey {
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Input {
     VapourSynth {
-        path:        PathBuf,
+        path: PathBuf,
         vspipe_args: Vec<String>,
         // Must be stored in memory at initialization instead of generating
         // on demand in order to reduce thrashing disk with frequent reads from Target Quality
         // probing
         script_text: String,
-        is_proxy:    bool,
+        is_proxy: bool,
     },
     Video {
-        path:         PathBuf,
+        path: PathBuf,
         // Used to generate script_text if chunk_method is supported
-        temp:         String,
+        temp: String,
         // Store as a string of ChunkMethod to enable hashing
         chunk_method: ChunkMethod,
-        is_proxy:     bool,
+        is_proxy: bool,
     },
 }
 
@@ -177,12 +177,8 @@ impl Input {
     #[inline]
     pub fn as_video_path(&self) -> &Path {
         match &self {
-            Input::Video {
-                path, ..
-            } => path.as_ref(),
-            Input::VapourSynth {
-                ..
-            } => {
+            Input::Video { path, .. } => path.as_ref(),
+            Input::VapourSynth { .. } => {
                 panic!("called `Input::as_video_path()` on an `Input::VapourSynth` variant")
             },
         }
@@ -193,12 +189,8 @@ impl Input {
     #[inline]
     pub fn as_vapoursynth_path(&self) -> &Path {
         match &self {
-            Input::VapourSynth {
-                path, ..
-            } => path.as_ref(),
-            Input::Video {
-                ..
-            } => {
+            Input::VapourSynth { path, .. } => path.as_ref(),
+            Input::Video { .. } => {
                 panic!("called `Input::as_vapoursynth_path()` on an `Input::Video` variant")
             },
         }
@@ -213,12 +205,7 @@ impl Input {
     #[inline]
     pub fn as_path(&self) -> &Path {
         match &self {
-            Input::Video {
-                path, ..
-            }
-            | Input::VapourSynth {
-                path, ..
-            } => path.as_ref(),
+            Input::Video { path, .. } | Input::VapourSynth { path, .. } => path.as_ref(),
         }
     }
 
@@ -232,9 +219,7 @@ impl Input {
         scene_detection_scaler: Option<&str>,
     ) -> anyhow::Result<String> {
         match &self {
-            Input::VapourSynth {
-                script_text, ..
-            } => Ok(script_text.clone()),
+            Input::VapourSynth { script_text, .. } => Ok(script_text.clone()),
             Input::Video {
                 path,
                 temp,
@@ -268,12 +253,8 @@ impl Input {
     #[inline]
     pub fn as_script_path(&self) -> PathBuf {
         match &self {
-            Input::VapourSynth {
-                path, ..
-            } => path.clone(),
-            Input::Video {
-                temp, ..
-            } if self.is_vapoursynth_script() => {
+            Input::VapourSynth { path, .. } => path.clone(),
+            Input::Video { temp, .. } if self.is_vapoursynth_script() => {
                 let temp: &Path = temp.as_ref();
                 temp.join("split").join(if self.is_proxy() {
                     "loadscript_proxy.vpy"
@@ -281,9 +262,9 @@ impl Input {
                     "loadscript.vpy"
                 })
             },
-            Input::Video {
-                ..
-            } => panic!("called `Input::as_script_path()` on an `Input::Video` variant"),
+            Input::Video { .. } => {
+                panic!("called `Input::as_script_path()` on an `Input::Video` variant")
+            },
         }
     }
 
@@ -300,24 +281,15 @@ impl Input {
     #[inline]
     pub const fn is_proxy(&self) -> bool {
         match &self {
-            Input::Video {
-                is_proxy, ..
-            }
-            | Input::VapourSynth {
-                is_proxy, ..
-            } => *is_proxy,
+            Input::Video { is_proxy, .. } | Input::VapourSynth { is_proxy, .. } => *is_proxy,
         }
     }
 
     #[inline]
     pub fn is_vapoursynth_script(&self) -> bool {
         match &self {
-            Input::VapourSynth {
-                ..
-            } => true,
-            Input::Video {
-                chunk_method, ..
-            } => matches!(
+            Input::VapourSynth { .. } => true,
+            Input::Video { chunk_method, .. } => matches!(
                 chunk_method,
                 ChunkMethod::LSMASH
                     | ChunkMethod::FFMS2
@@ -333,7 +305,7 @@ impl Input {
 
         let mut cache = CLIP_INFO_CACHE.lock().expect("mutex should acquire lock");
         let key = CacheKey {
-            input:    self.clone(),
+            input: self.clone(),
             is_proxy: self.is_proxy(),
         };
         let cached = cache.get(&key);
@@ -342,9 +314,7 @@ impl Input {
         }
 
         let info = match &self {
-            Input::Video {
-                path, ..
-            } if !&self.is_vapoursynth_script() => {
+            Input::Video { path, .. } if !&self.is_vapoursynth_script() => {
                 ffmpeg::get_clip_info(path.as_path()).context(FAIL_MSG)?
             },
             path => {
@@ -378,12 +348,8 @@ impl Input {
     #[inline]
     pub fn as_vspipe_args_vec(&self) -> anyhow::Result<Vec<String>> {
         match self {
-            Input::VapourSynth {
-                vspipe_args, ..
-            } => Ok(vspipe_args.to_owned()),
-            Input::Video {
-                ..
-            } => Ok(vec![]),
+            Input::VapourSynth { vspipe_args, .. } => Ok(vspipe_args.to_owned()),
+            Input::Video { .. } => Ok(vec![]),
         }
     }
 
@@ -419,7 +385,7 @@ impl Input {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 struct DoneChunk {
-    frames:     usize,
+    frames: usize,
     size_bytes: u64,
 }
 
@@ -427,8 +393,8 @@ struct DoneChunk {
 /// encode
 #[derive(Debug, Deserialize, Serialize)]
 struct DoneJson {
-    frames:     AtomicUsize,
-    done:       DashMap<String, DoneChunk>,
+    frames: AtomicUsize,
+    done: DashMap<String, DoneChunk>,
     audio_done: AtomicBool,
 }
 
@@ -680,16 +646,16 @@ pub enum ProbingStatisticName {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProbingStatistic {
-    pub name:  ProbingStatisticName,
+    pub name: ProbingStatisticName,
     pub value: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClipInfo {
-    pub num_frames:               usize,
-    pub format_info:              InputPixelFormat,
-    pub frame_rate:               Rational64,
-    pub resolution:               (u32, u32), // (width, height), consider using type aliases
+    pub num_frames: usize,
+    pub format_info: InputPixelFormat,
+    pub frame_rate: Rational64,
+    pub resolution: (u32, u32), // (width, height), consider using type aliases
     /// This is overly simplified because we currently only use it for photon
     /// noise gen, which only supports two transfer functions
     pub transfer_characteristics: TransferFunction,

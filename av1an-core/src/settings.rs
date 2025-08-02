@@ -19,18 +19,12 @@ use crate::{
     parse::valid_params,
     target_quality::TargetQuality,
     vapoursynth::{VSZipVersion, VapoursynthPlugins},
-    ChunkMethod,
-    ChunkOrdering,
-    Input,
-    ScenecutMethod,
-    SplitMethod,
-    TargetMetric,
-    Verbosity,
+    ChunkMethod, ChunkOrdering, Input, ScenecutMethod, SplitMethod, TargetMetric, Verbosity,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PixelFormat {
-    pub format:    FFPixelFormat,
+    pub format: FFPixelFormat,
     pub bit_depth: usize,
 }
 
@@ -44,24 +38,20 @@ impl InputPixelFormat {
     #[inline]
     pub fn as_bit_depth(&self) -> anyhow::Result<usize> {
         match self {
-            InputPixelFormat::VapourSynth {
-                bit_depth,
-            } => Ok(*bit_depth),
-            InputPixelFormat::FFmpeg {
-                ..
-            } => Err(anyhow::anyhow!("failed to get bit depth; wrong input type")),
+            InputPixelFormat::VapourSynth { bit_depth } => Ok(*bit_depth),
+            InputPixelFormat::FFmpeg { .. } => {
+                Err(anyhow::anyhow!("failed to get bit depth; wrong input type"))
+            },
         }
     }
 
     #[inline]
     pub fn as_pixel_format(&self) -> anyhow::Result<FFPixelFormat> {
         match self {
-            InputPixelFormat::VapourSynth {
-                ..
-            } => Err(anyhow::anyhow!("failed to get bit depth; wrong input type")),
-            InputPixelFormat::FFmpeg {
-                format,
-            } => Ok(*format),
+            InputPixelFormat::VapourSynth { .. } => {
+                Err(anyhow::anyhow!("failed to get bit depth; wrong input type"))
+            },
+            InputPixelFormat::FFmpeg { format } => Ok(*format),
         }
     }
 }
@@ -69,60 +59,60 @@ impl InputPixelFormat {
 #[expect(clippy::struct_excessive_bools)]
 #[derive(Debug)]
 pub struct EncodeArgs {
-    pub input:       Input,
-    pub proxy:       Option<Input>,
-    pub temp:        String,
+    pub input: Input,
+    pub proxy: Option<Input>,
+    pub temp: String,
     pub output_file: String,
 
-    pub chunk_method:          ChunkMethod,
-    pub chunk_order:           ChunkOrdering,
-    pub scaler:                String,
-    pub scenes:                Option<PathBuf>,
-    pub split_method:          SplitMethod,
-    pub sc_pix_format:         Option<FFPixelFormat>,
-    pub sc_method:             ScenecutMethod,
-    pub sc_only:               bool,
-    pub sc_downscale_height:   Option<usize>,
-    pub extra_splits_len:      Option<usize>,
-    pub min_scene_len:         usize,
-    pub force_keyframes:       Vec<usize>,
+    pub chunk_method: ChunkMethod,
+    pub chunk_order: ChunkOrdering,
+    pub scaler: String,
+    pub scenes: Option<PathBuf>,
+    pub split_method: SplitMethod,
+    pub sc_pix_format: Option<FFPixelFormat>,
+    pub sc_method: ScenecutMethod,
+    pub sc_only: bool,
+    pub sc_downscale_height: Option<usize>,
+    pub extra_splits_len: Option<usize>,
+    pub min_scene_len: usize,
+    pub force_keyframes: Vec<usize>,
     pub ignore_frame_mismatch: bool,
 
     pub max_tries: usize,
 
-    pub passes:              u8,
-    pub video_params:        Vec<String>,
-    pub tiles:               (u32, u32), /* tile (cols, rows) count; log2 will be applied later
-                                          * for specific encoders */
-    pub encoder:             Encoder,
-    pub workers:             usize,
+    pub passes: u8,
+    pub video_params: Vec<String>,
+    pub tiles: (u32, u32), /* tile (cols, rows) count; log2 will be applied later
+                            * for specific encoders */
+    pub encoder: Encoder,
+    pub workers: usize,
     pub set_thread_affinity: Option<usize>,
-    pub photon_noise:        Option<u8>,
-    pub photon_noise_size:   (Option<u32>, Option<u32>), // Width and Height
-    pub chroma_noise:        bool,
-    pub zones:               Option<PathBuf>,
+    pub photon_noise: Option<u8>,
+    pub photon_noise_size: (Option<u32>, Option<u32>), // Width and Height
+    pub chroma_noise: bool,
+    pub zones: Option<PathBuf>,
 
     // FFmpeg params
     pub ffmpeg_filter_args: Vec<String>,
-    pub audio_params:       Vec<String>,
-    pub input_pix_format:   InputPixelFormat,
-    pub output_pix_format:  PixelFormat,
+    pub audio_params: Vec<String>,
+    pub input_pix_format: InputPixelFormat,
+    pub output_pix_format: PixelFormat,
 
-    pub verbosity:   Verbosity,
-    pub resume:      bool,
-    pub keep:        bool,
-    pub force:       bool,
+    pub verbosity: Verbosity,
+    pub resume: bool,
+    pub keep: bool,
+    pub force: bool,
     pub no_defaults: bool,
-    pub tile_auto:   bool,
+    pub tile_auto: bool,
 
-    pub concat:         ConcatMethod,
+    pub concat: ConcatMethod,
     pub target_quality: TargetQuality,
-    pub vmaf:           bool,
-    pub vmaf_path:      Option<PathBuf>,
-    pub vmaf_res:       String,
-    pub probe_res:      Option<String>,
-    pub vmaf_threads:   Option<usize>,
-    pub vmaf_filter:    Option<String>,
+    pub vmaf: bool,
+    pub vmaf_path: Option<PathBuf>,
+    pub vmaf_res: String,
+    pub probe_res: Option<String>,
+    pub vmaf_threads: Option<usize>,
+    pub vmaf_filter: Option<String>,
 
     pub vapoursynth_plugins: Option<VapoursynthPlugins>,
 }

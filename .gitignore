@@ -153,3 +153,5 @@ Upload.sh
 *.json
 
 logs/
+*.mkv
+*.mp4

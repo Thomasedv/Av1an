@@ -11,12 +11,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::{
-    broker::EncoderCrash,
-    ffmpeg,
-    ref_smallvec,
-    util::printable_base10_digits,
-    Input,
-    VmafFeature,
+    broker::EncoderCrash, ffmpeg, ref_smallvec, util::printable_base10_digits, Input, VmafFeature,
 };
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -144,20 +139,13 @@ pub fn plot(
     println!(":: VMAF Run");
 
     let pipe_cmd: SmallVec<[&OsStr; 8]> = match reference {
-        Input::Video {
-            ref path, ..
-        } => {
+        Input::Video { ref path, .. } => {
             vspipe_args = vec![];
-            ref_smallvec!(OsStr, 8, [
-                "ffmpeg",
-                "-i",
-                path,
-                "-strict",
-                "-1",
-                "-f",
-                "yuv4mpegpipe",
-                "-"
-            ])
+            ref_smallvec!(
+                OsStr,
+                8,
+                ["ffmpeg", "-i", path, "-strict", "-1", "-f", "yuv4mpegpipe", "-"]
+            )
         },
         Input::VapourSynth {
             ref path,
@@ -321,11 +309,11 @@ pub fn run_vmaf(
 
     if !output.status.success() {
         return Err(EncoderCrash {
-            exit_status:        output.status,
+            exit_status: output.status,
             source_pipe_stderr: String::new().into(),
             ffmpeg_pipe_stderr: None,
-            stderr:             output.stderr.into(),
-            stdout:             String::new().into(),
+            stderr: output.stderr.into(),
+            stdout: String::new().into(),
         }
         .into());
     }

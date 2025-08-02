@@ -6,8 +6,8 @@ fn extra_split_no_segments() {
     let split_size = 240;
     let done = extra_splits(
         &[Scene {
-            start_frame:    0,
-            end_frame:      300,
+            start_frame: 0,
+            end_frame: 300,
             zone_overrides: None,
         }],
         split_size,
@@ -27,53 +27,53 @@ fn extra_split_segments() {
     let done = extra_splits(
         &[
             Scene {
-                start_frame:    0,
-                end_frame:      150,
+                start_frame: 0,
+                end_frame: 150,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    150,
-                end_frame:      460,
+                start_frame: 150,
+                end_frame: 460,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    460,
-                end_frame:      728,
+                start_frame: 460,
+                end_frame: 728,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    728,
-                end_frame:      822,
+                start_frame: 728,
+                end_frame: 822,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    822,
-                end_frame:      876,
+                start_frame: 822,
+                end_frame: 876,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    876,
-                end_frame:      890,
+                start_frame: 876,
+                end_frame: 890,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    890,
-                end_frame:      1100,
+                start_frame: 890,
+                end_frame: 1100,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    1100,
-                end_frame:      1399,
+                start_frame: 1100,
+                end_frame: 1399,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    1399,
-                end_frame:      1709,
+                start_frame: 1399,
+                end_frame: 1709,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    1709,
-                end_frame:      2000,
+                start_frame: 1709,
+                end_frame: 2000,
                 zone_overrides: None,
             },
         ],
@@ -97,75 +97,75 @@ fn extra_split_preserves_zone_overrides() {
     let done = extra_splits(
         &[
             Scene {
-                start_frame:    0,
-                end_frame:      150,
+                start_frame: 0,
+                end_frame: 150,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    150,
-                end_frame:      460,
+                start_frame: 150,
+                end_frame: 460,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    460,
-                end_frame:      728,
+                start_frame: 460,
+                end_frame: 728,
                 zone_overrides: Some(ZoneOptions {
-                    encoder:             Encoder::rav1e,
-                    passes:              1,
-                    extra_splits_len:    Some(50),
-                    min_scene_len:       12,
-                    photon_noise:        None,
+                    encoder: Encoder::rav1e,
+                    passes: 1,
+                    extra_splits_len: Some(50),
+                    min_scene_len: 12,
+                    photon_noise: None,
                     photon_noise_height: None,
-                    photon_noise_width:  None,
-                    chroma_noise:        false,
-                    video_params:        into_vec!["--speed", "8"],
-                    target_quality:      None,
+                    photon_noise_width: None,
+                    chroma_noise: false,
+                    video_params: into_vec!["--speed", "8"],
+                    target_quality: None,
                 }),
             },
             Scene {
-                start_frame:    728,
-                end_frame:      822,
+                start_frame: 728,
+                end_frame: 822,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    822,
-                end_frame:      876,
+                start_frame: 822,
+                end_frame: 876,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    876,
-                end_frame:      890,
+                start_frame: 876,
+                end_frame: 890,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    890,
-                end_frame:      1100,
+                start_frame: 890,
+                end_frame: 1100,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    1100,
-                end_frame:      1399,
+                start_frame: 1100,
+                end_frame: 1399,
                 zone_overrides: None,
             },
             Scene {
-                start_frame:    1399,
-                end_frame:      1709,
+                start_frame: 1399,
+                end_frame: 1709,
                 zone_overrides: Some(ZoneOptions {
-                    encoder:             Encoder::rav1e,
-                    passes:              1,
-                    extra_splits_len:    Some(split_size),
-                    min_scene_len:       12,
-                    photon_noise:        None,
+                    encoder: Encoder::rav1e,
+                    passes: 1,
+                    extra_splits_len: Some(split_size),
+                    min_scene_len: 12,
+                    photon_noise: None,
                     photon_noise_height: None,
-                    photon_noise_width:  None,
-                    chroma_noise:        false,
-                    video_params:        into_vec!["--speed", "3"],
-                    target_quality:      None,
+                    photon_noise_width: None,
+                    chroma_noise: false,
+                    video_params: into_vec!["--speed", "3"],
+                    target_quality: None,
                 }),
             },
             Scene {
-                start_frame:    1709,
-                end_frame:      2000,
+                start_frame: 1709,
+                end_frame: 2000,
                 zone_overrides: None,
             },
         ],
@@ -183,18 +183,18 @@ fn extra_split_preserves_zone_overrides() {
             460..=727 => {
                 assert!(scene.zone_overrides.is_some());
                 let overrides = scene.zone_overrides.expect("zone overrides should exist");
-                assert_eq!(overrides.video_params, vec![
-                    "--speed".to_owned(),
-                    "8".to_owned()
-                ]);
+                assert_eq!(
+                    overrides.video_params,
+                    vec!["--speed".to_owned(), "8".to_owned()]
+                );
             },
             1399..=1708 => {
                 assert!(scene.zone_overrides.is_some());
                 let overrides = scene.zone_overrides.expect("zone overrides should exist");
-                assert_eq!(overrides.video_params, vec![
-                    "--speed".to_owned(),
-                    "3".to_owned()
-                ]);
+                assert_eq!(
+                    overrides.video_params,
+                    vec!["--speed".to_owned(), "3".to_owned()]
+                );
             },
             _ => {
                 assert!(scene.zone_overrides.is_none());

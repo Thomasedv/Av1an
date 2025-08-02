@@ -18,13 +18,8 @@ use crate::{
     chunk::Chunk,
     ffmpeg::FFPixelFormat,
     interpol::{
-        akima_interpolate,
-        catmull_rom_interpolate,
-        cubic_polynomial_interpolate,
-        linear_interpolate,
-        natural_cubic_spline,
-        pchip_interpolate,
-        quadratic_interpolate,
+        akima_interpolate, catmull_rom_interpolate, cubic_polynomial_interpolate,
+        linear_interpolate, natural_cubic_spline, pchip_interpolate, quadratic_interpolate,
     },
     metrics::{
         butteraugli::ButteraugliSubMetric,
@@ -34,11 +29,7 @@ use crate::{
     },
     progress_bar::update_mp_msg,
     vapoursynth::{measure_butteraugli, measure_ssimulacra2, measure_xpsnr, VapoursynthPlugins},
-    Encoder,
-    ProbingStatistic,
-    ProbingStatisticName,
-    TargetMetric,
-    VmafFeature,
+    Encoder, ProbingStatistic, ProbingStatisticName, TargetMetric, VmafFeature,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,28 +63,28 @@ impl FromStr for InterpolationMethod {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TargetQuality {
-    pub vmaf_res:              String,
-    pub probe_res:             Option<(u32, u32)>,
-    pub vmaf_scaler:           String,
-    pub vmaf_filter:           Option<String>,
-    pub vmaf_threads:          usize,
-    pub model:                 Option<PathBuf>,
-    pub probing_rate:          usize,
-    pub probes:                u32,
-    pub target:                Option<(f64, f64)>,
-    pub metric:                TargetMetric,
-    pub min_q:                 u32,
-    pub max_q:                 u32,
-    pub interp_method:         Option<(InterpolationMethod, InterpolationMethod)>,
-    pub encoder:               Encoder,
-    pub pix_format:            FFPixelFormat,
-    pub temp:                  String,
-    pub workers:               usize,
-    pub video_params:          Option<Vec<String>>,
-    pub params_copied:         bool,
-    pub vspipe_args:           Vec<String>,
+    pub vmaf_res: String,
+    pub probe_res: Option<(u32, u32)>,
+    pub vmaf_scaler: String,
+    pub vmaf_filter: Option<String>,
+    pub vmaf_threads: usize,
+    pub model: Option<PathBuf>,
+    pub probing_rate: usize,
+    pub probes: u32,
+    pub target: Option<(f64, f64)>,
+    pub metric: TargetMetric,
+    pub min_q: u32,
+    pub max_q: u32,
+    pub interp_method: Option<(InterpolationMethod, InterpolationMethod)>,
+    pub encoder: Encoder,
+    pub pix_format: FFPixelFormat,
+    pub temp: String,
+    pub workers: usize,
+    pub video_params: Option<Vec<String>>,
+    pub params_copied: bool,
+    pub vspipe_args: Vec<String>,
     pub probing_vmaf_features: Vec<VmafFeature>,
-    pub probing_statistic:     ProbingStatistic,
+    pub probing_statistic: ProbingStatistic,
 }
 
 impl TargetQuality {
@@ -124,7 +115,7 @@ impl TargetQuality {
             vspipe_args: vec![],
             probing_vmaf_features: vec![VmafFeature::Default],
             probing_statistic: ProbingStatistic {
-                name:  ProbingStatisticName::Automatic,
+                name: ProbingStatisticName::Automatic,
                 value: None,
             },
         }
@@ -430,11 +421,11 @@ impl TargetQuality {
                     )
                     .map_err(|e| {
                         Box::new(EncoderCrash {
-                            exit_status:        std::process::ExitStatus::default(),
+                            exit_status: std::process::ExitStatus::default(),
                             source_pipe_stderr: String::new().into(),
                             ffmpeg_pipe_stderr: None,
-                            stderr:             format!("VMAF calculation failed: {e}").into(),
-                            stdout:             String::new().into(),
+                            stderr: format!("VMAF calculation failed: {e}").into(),
+                            stdout: String::new().into(),
                         })
                     })?
                 } else {
@@ -585,11 +576,11 @@ impl TargetQuality {
                     .stdout(std::process::Stdio::piped())
                     .spawn()
                     .map_err(|e| EncoderCrash {
-                        exit_status:        std::process::ExitStatus::default(),
+                        exit_status: std::process::ExitStatus::default(),
                         source_pipe_stderr: format!("Failed to spawn source: {e}").into(),
                         ffmpeg_pipe_stderr: None,
-                        stderr:             String::new().into(),
-                        stdout:             String::new().into(),
+                        stderr: String::new().into(),
+                        stdout: String::new().into(),
                     })?
             } else {
                 unreachable!()
@@ -607,11 +598,11 @@ impl TargetQuality {
                         .stderr(std::process::Stdio::piped())
                         .spawn()
                         .map_err(|e| EncoderCrash {
-                            exit_status:        std::process::ExitStatus::default(),
+                            exit_status: std::process::ExitStatus::default(),
                             source_pipe_stderr: format!("Failed to spawn ffmpeg: {e}").into(),
                             ffmpeg_pipe_stderr: None,
-                            stderr:             String::new().into(),
-                            stdout:             String::new().into(),
+                            stderr: String::new().into(),
+                            stdout: String::new().into(),
                         })?;
 
                     let source_pipe_stdout =
@@ -668,11 +659,11 @@ impl TargetQuality {
 
             // Wait for encoder & other processes to finish
             let enc_status = enc_pipe.wait().map_err(|e| EncoderCrash {
-                exit_status:        std::process::ExitStatus::default(),
+                exit_status: std::process::ExitStatus::default(),
                 source_pipe_stderr: String::new().into(),
                 ffmpeg_pipe_stderr: None,
-                stderr:             format!("Failed to wait for encoder: {e}").into(),
-                stdout:             String::new().into(),
+                stderr: format!("Failed to wait for encoder: {e}").into(),
+                stdout: String::new().into(),
             })?;
 
             if let Some(source_pipe) = source_pipe.as_mut() {
@@ -689,11 +680,11 @@ impl TargetQuality {
 
             if !enc_status.success() {
                 return Err(EncoderCrash {
-                    exit_status:        enc_status,
+                    exit_status: enc_status,
                     source_pipe_stderr: stderr_handles.0.into(),
                     ffmpeg_pipe_stderr: stderr_handles.1.map(|h| h.into()),
-                    stderr:             stderr_handles.2.into(),
-                    stdout:             String::new().into(),
+                    stderr: stderr_handles.2.into(),
+                    stdout: String::new().into(),
                 });
             }
 
@@ -717,35 +708,35 @@ impl TargetQuality {
     pub fn parse_probing_statistic(stat: &str) -> anyhow::Result<ProbingStatistic> {
         Ok(match stat.to_lowercase().as_str() {
             "auto" => ProbingStatistic {
-                name:  ProbingStatisticName::Automatic,
+                name: ProbingStatisticName::Automatic,
                 value: None,
             },
             "mean" => ProbingStatistic {
-                name:  ProbingStatisticName::Mean,
+                name: ProbingStatisticName::Mean,
                 value: None,
             },
             "harmonic" => ProbingStatistic {
-                name:  ProbingStatisticName::Harmonic,
+                name: ProbingStatisticName::Harmonic,
                 value: None,
             },
             "root-mean-square" => ProbingStatistic {
-                name:  ProbingStatisticName::RootMeanSquare,
+                name: ProbingStatisticName::RootMeanSquare,
                 value: None,
             },
             "median" => ProbingStatistic {
-                name:  ProbingStatisticName::Median,
+                name: ProbingStatisticName::Median,
                 value: None,
             },
             "mode" => ProbingStatistic {
-                name:  ProbingStatisticName::Mode,
+                name: ProbingStatisticName::Mode,
                 value: None,
             },
             "minimum" => ProbingStatistic {
-                name:  ProbingStatisticName::Minimum,
+                name: ProbingStatisticName::Minimum,
                 value: None,
             },
             "maximum" => ProbingStatistic {
-                name:  ProbingStatisticName::Maximum,
+                name: ProbingStatisticName::Maximum,
                 value: None,
             },
             probe_statistic if probe_statistic.starts_with("percentile") => {
@@ -768,7 +759,7 @@ impl TargetQuality {
                         )
                     })?;
                 ProbingStatistic {
-                    name:  ProbingStatisticName::Percentile,
+                    name: ProbingStatisticName::Percentile,
                     value: Some(value),
                 }
             },
@@ -789,7 +780,7 @@ impl TargetQuality {
                         anyhow!("Probing Statistic standard deviation must have a value appended")
                     })?;
                 ProbingStatistic {
-                    name:  ProbingStatisticName::StandardDeviation,
+                    name: ProbingStatisticName::StandardDeviation,
                     value: Some(value),
                 }
             },
@@ -919,11 +910,11 @@ fn build_encoder_pipe(
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| EncoderCrash {
-            exit_status:        std::process::ExitStatus::default(),
+            exit_status: std::process::ExitStatus::default(),
             source_pipe_stderr: String::new().into(),
             ffmpeg_pipe_stderr: None,
-            stderr:             format!("Failed to spawn encoder: {e}").into(),
-            stdout:             String::new().into(),
+            stderr: format!("Failed to spawn encoder: {e}").into(),
+            stdout: String::new().into(),
         })
 }
 

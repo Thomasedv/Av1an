@@ -8,26 +8,15 @@ use std::{
 use anyhow::bail;
 use av_decoders::{DecoderError, DecoderImpl, VapoursynthDecoder, Y4mDecoder};
 use av_scenechange::{
-    detect_scene_changes,
-    Decoder,
-    DetectionOptions,
-    SceneDetectionSpeed,
-    ScenecutResult,
+    detect_scene_changes, Decoder, DetectionOptions, SceneDetectionSpeed, ScenecutResult,
 };
 use colored::*;
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    ffmpeg::FFPixelFormat,
-    into_smallvec,
-    progress_bar,
-    scenes::Scene,
-    vapoursynth::resize_node,
-    Encoder,
-    Input,
-    ScenecutMethod,
-    Verbosity,
+    ffmpeg::FFPixelFormat, into_smallvec, progress_bar, scenes::Scene, vapoursynth::resize_node,
+    Encoder, Input, ScenecutMethod, Verbosity,
 };
 
 #[tracing::instrument(level = "debug")]
@@ -184,15 +173,15 @@ pub fn scene_detect(
         let scene_changes = sc_result.scene_changes;
         for (start, end) in scene_changes.iter().copied().tuple_windows() {
             scenes.push(Scene {
-                start_frame:    start + frames_read,
-                end_frame:      end + frames_read,
+                start_frame: start + frames_read,
+                end_frame: end + frames_read,
                 zone_overrides: cur_zone.and_then(|zone| zone.zone_overrides.clone()),
             });
         }
 
         scenes.push(Scene {
-            start_frame:    scenes.last().map(|scene| scene.end_frame).unwrap_or_default(),
-            end_frame:      frame_limit.map_or(total_frames, |limit| {
+            start_frame: scenes.last().map(|scene| scene.end_frame).unwrap_or_default(),
+            end_frame: frame_limit.map_or(total_frames, |limit| {
                 frames_read += limit;
                 frames_read
             }),

@@ -23,21 +23,19 @@ use crate::{
         butteraugli::ButteraugliSubMetric,
         xpsnr::{weight_xpsnr, XPSNRSubMetric},
     },
-    ClipInfo,
-    Input,
-    InputPixelFormat,
+    ClipInfo, Input, InputPixelFormat,
 };
 
 /// Contains a list of installed Vapoursynth plugins which may be used by av1an
 #[derive(Debug, Clone, Copy)]
 pub struct VapoursynthPlugins {
-    pub lsmash:     bool,
-    pub ffms2:      bool,
-    pub dgdecnv:    bool,
+    pub lsmash: bool,
+    pub ffms2: bool,
+    pub dgdecnv: bool,
     pub bestsource: bool,
-    pub julek:      bool,
-    pub vszip:      VSZipVersion,
-    pub vship:      bool,
+    pub julek: bool,
+    pub vszip: VSZipVersion,
+    pub vship: bool,
 }
 
 impl VapoursynthPlugins {
@@ -86,12 +84,12 @@ pub fn get_vapoursynth_plugins() -> anyhow::Result<VapoursynthPlugins> {
         .collect::<HashSet<_>>();
 
     Ok(VapoursynthPlugins {
-        lsmash:     plugins.contains(PluginId::Lsmash.as_str()),
-        ffms2:      plugins.contains(PluginId::Ffms2.as_str()),
-        dgdecnv:    plugins.contains(PluginId::DGDecNV.as_str()),
+        lsmash: plugins.contains(PluginId::Lsmash.as_str()),
+        ffms2: plugins.contains(PluginId::Ffms2.as_str()),
+        dgdecnv: plugins.contains(PluginId::DGDecNV.as_str()),
         bestsource: plugins.contains(PluginId::BestSource.as_str()),
-        julek:      plugins.contains(PluginId::Julek.as_str()),
-        vszip:      if plugins.contains(PluginId::Vszip.as_str()) {
+        julek: plugins.contains(PluginId::Julek.as_str()),
+        vszip: if plugins.contains(PluginId::Vszip.as_str()) {
             if is_vszip_r7_or_newer(&env) {
                 VSZipVersion::New
             } else {
@@ -100,7 +98,7 @@ pub fn get_vapoursynth_plugins() -> anyhow::Result<VapoursynthPlugins> {
         } else {
             VSZipVersion::None
         },
-        vship:      plugins.contains(PluginId::Vship.as_str()),
+        vship: plugins.contains(PluginId::Vship.as_str()),
     })
 }
 
@@ -162,12 +160,12 @@ pub fn get_clip_info(source: &Input, vspipe_args_map: &OwnedMap) -> anyhow::Resu
     let info = node.info();
 
     Ok(ClipInfo {
-        num_frames:               get_num_frames(&info)?,
-        format_info:              InputPixelFormat::VapourSynth {
+        num_frames: get_num_frames(&info)?,
+        format_info: InputPixelFormat::VapourSynth {
             bit_depth: get_bit_depth(&info)?,
         },
-        frame_rate:               get_frame_rate(&info)?,
-        resolution:               get_resolution(&info)?,
+        frame_rate: get_frame_rate(&info)?,
+        resolution: get_resolution(&info)?,
         transfer_characteristics: match get_transfer(&environment)? {
             16 => av1_grain::TransferFunction::SMPTE2084,
             _ => av1_grain::TransferFunction::BT1886,
@@ -821,10 +819,13 @@ pub fn generate_loadscript_text(
     let mut load_script_text = include_str!("loadscript.vpy")
         .replace(
             "source = os.environ.get(\"AV1AN_SOURCE\", None)",
-            &format!("source = r\"{}\"", match chunk_method {
-                ChunkMethod::DGDECNV => dgindex_path.display(),
-                _ => source.display(),
-            }),
+            &format!(
+                "source = r\"{}\"",
+                match chunk_method {
+                    ChunkMethod::DGDECNV => dgindex_path.display(),
+                    _ => source.display(),
+                }
+            ),
         )
         .replace(
             "chunk_method = os.environ.get(\"AV1AN_CHUNK_METHOD\", None)",
@@ -904,10 +905,7 @@ pub fn get_comparands<'core>(
         let chunk_node_resolution = chunk_node.info().resolution;
         let (width, height) = match chunk_node_resolution {
             Property::Variable => (0, 0),
-            Property::Constant(Resolution {
-                width,
-                height,
-            }) => (width as u32, height as u32),
+            Property::Constant(Resolution { width, height }) => (width as u32, height as u32),
         };
         resize_node(core, &encoded_node, Some(width), Some(height), None, None)?
     };
