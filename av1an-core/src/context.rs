@@ -5,6 +5,7 @@ use colored::*;
 use itertools::Itertools;
 use num_traits::cast::ToPrimitive;
 use rand::{prelude::SliceRandom, rng};
+use std::process::{Child, Output};
 use std::{
     borrow::Cow,
     cmp::{self, Reverse},
@@ -494,10 +495,241 @@ impl Av1anContext {
         Ok(queue_files)
     }
 
+    fn build_encoder_command(
+        chunk: &Chunk,
+        current_pass: u8,
+        fpf_file: &Path,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut cmd = if chunk.passes == 1 {
+            chunk.encoder.compose_1_1_pass(chunk.video_params.clone(), chunk.output())
+        } else if current_pass == 1 {
+            chunk.encoder.compose_1_2_pass(
+                chunk.video_params.clone(),
+                fpf_file.to_string_lossy().as_ref(),
+            )
+        } else {
+            chunk.encoder.compose_2_2_pass(
+                chunk.video_params.clone(),
+                fpf_file.to_string_lossy().as_ref(),
+                chunk.output(),
+            )
+        };
+
+        if let Some(tq_cq) = chunk.tq_cq {
+            cmd = chunk.encoder.man_command(cmd, tq_cq as usize);
+        }
+        Ok(cmd)
+    }
+
+    fn spawn_source_and_ffmpeg(
+        &self,
+        chunk: &Chunk,
+    ) -> Result<(Stdio, ChildStderr, Option<ChildStderr>), (anyhow::Error, u64)> {
+        // Spawn source process
+        let mut source_pipe = if let [source, args @ ..] = &*chunk.source_cmd {
+            let mut command = Command::new(source);
+            for arg in chunk.input.as_vspipe_args_vec().map_err(|e| (e, 0))? {
+                command.args(["-a", &arg]);
+            }
+            command
+                .args(args)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| (e.into(), 0))?
+        } else {
+            unreachable!()
+        };
+
+        let source_pipe_stdout: Stdio =
+            source_pipe.stdout.take().expect("source_pipe should have stdout").into();
+        let source_pipe_stderr = source_pipe.stderr.take().expect("source_pipe should have stderr");
+
+        // Inner closure to create ffmpeg pipe if needed
+        let create_ffmpeg_pipe = |pipe_from: Stdio, source_pipe_stderr: ChildStderr| {
+            let ffmpeg_pipe = compose_ffmpeg_pipe(
+                self.args.ffmpeg_filter_args.as_slice(),
+                self.args.output_pix_format.format,
+            );
+
+            let mut ffmpeg_pipe = if let [ffmpeg, args @ ..] = &*ffmpeg_pipe {
+                Command::new(ffmpeg)
+                    .args(args)
+                    .stdin(pipe_from)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e| (e.into(), 0))?
+            } else {
+                unreachable!()
+            };
+
+            let ffmpeg_pipe_stdout: Stdio =
+                ffmpeg_pipe.stdout.take().expect("ffmpeg_pipe should have stdout").into();
+            let ffmpeg_pipe_stderr =
+                ffmpeg_pipe.stderr.take().expect("ffmpeg_pipe should have stderr");
+            Ok((
+                ffmpeg_pipe_stdout,
+                source_pipe_stderr,
+                Some(ffmpeg_pipe_stderr),
+            ))
+        };
+
+        // Decide if ffmpeg pipe is needed or not
+        if self.args.ffmpeg_filter_args.is_empty() {
+            match &self.args.input_pix_format {
+                InputPixelFormat::FFmpeg { format } => {
+                    if self.args.output_pix_format.format == *format {
+                        Ok((source_pipe_stdout, source_pipe_stderr, None))
+                    } else {
+                        create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)
+                    }
+                },
+                InputPixelFormat::VapourSynth { bit_depth } => {
+                    if self.args.output_pix_format.bit_depth == *bit_depth {
+                        Ok((source_pipe_stdout, source_pipe_stderr, None))
+                    } else {
+                        create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)
+                    }
+                },
+            }
+        } else {
+            create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)
+        }
+    }
+
+    fn spawn_stderr_reader<'scope, 'env: 'scope, R: std::io::Read + Send + 'static>(
+        scope: &'scope thread::Scope<'scope, 'env>,
+        reader: BufReader<R>,
+        output: Arc<Mutex<String>>,
+    ) {
+        scope.spawn(move || {
+            for line_result in reader.lines() {
+                let line = line_result.expect("should read line successfully");
+                let mut lock = output.lock().expect("mutex should acquire lock");
+                lock.push_str(&line);
+                lock.push('\n');
+            }
+        });
+    }
+
+    /// Spawns the encoder process and monitors stderr output.
+    fn spawn_encoder_process_and_monitor(
+        encoder: &str,
+        args: &[String],
+        stdin: impl Into<Stdio>,
+        chunk: &Chunk,
+        current_pass: u8,
+        worker_id: usize,
+        verbosity: Verbosity,
+    ) -> Result<(Output, String, u64), (anyhow::Error, u64)> {
+        let mut enc_pipe = Command::new(encoder)
+            .args(args)
+            .stdin(stdin)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| (e.into(), 0))?;
+
+        let mut frame = 0;
+        let mut reader =
+            BufReader::new(enc_pipe.stderr.take().expect("enc_pipe should have stderr"));
+        let mut buf = Vec::with_capacity(128);
+        let mut enc_stderr = String::with_capacity(128);
+
+        while let Ok(read) = reader.read_until(b'\r', &mut buf) {
+            if read == 0 {
+                break;
+            }
+
+            if let Ok(line) = simdutf8::basic::from_utf8_mut(&mut buf) {
+                enc_stderr.push_str(line);
+                enc_stderr.push('\n');
+
+                if let Some(new) = chunk.encoder.parse_encoded_frames(line) {
+                    if current_pass == chunk.passes {
+                        if new > frame {
+                            match verbosity {
+                                Verbosity::Normal => inc_bar(new - frame),
+                                Verbosity::Verbose => inc_mp_bar(new - frame),
+                                Verbosity::Quiet => {},
+                            }
+                            frame = new;
+                        }
+                    }
+
+                    if verbosity == Verbosity::Verbose {
+                        update_mp_msg_encoder(worker_id, current_pass, new, chunk.frames());
+                    }
+                }
+            }
+
+            buf.clear();
+        }
+
+        let enc_output = enc_pipe.wait_with_output().expect("enc_pipe should finish");
+        Ok((enc_output, enc_stderr, frame))
+    }
+
+    fn encode_with_pipes(
+        &self,
+        chunk: &Chunk,
+        current_pass: u8,
+        worker_id: usize,
+        enc_cmd: &[String],
+    ) -> Result<(String, Option<String>, Output, String, u64), (anyhow::Error, u64)> {
+        thread::scope(|scope| {
+            let (y4m_pipe, source_pipe_stderr, mut ffmpeg_pipe_stderr) =
+                self.spawn_source_and_ffmpeg(chunk)?;
+
+            let source_reader = BufReader::new(source_pipe_stderr);
+            let ffmpeg_reader = ffmpeg_pipe_stderr.take().map(BufReader::new);
+
+            let pipe_stderr = Arc::new(Mutex::new(String::with_capacity(128)));
+            let p_stdr2 = Arc::clone(&pipe_stderr);
+
+            let ffmpeg_stderr =
+                ffmpeg_reader.as_ref().map(|_| Arc::new(Mutex::new(String::with_capacity(128))));
+
+            let f_stdr2 = ffmpeg_stderr.clone();
+
+            Self::spawn_stderr_reader(scope, source_reader, p_stdr2);
+
+            if let Some(ffmpeg_reader) = ffmpeg_reader {
+                let f_stdr2 = f_stdr2.expect("f_stdr2 should exist if ffmpeg_reader exists");
+                Self::spawn_stderr_reader(scope, ffmpeg_reader, f_stdr2);
+            }
+
+            let (enc_output, enc_stderr, frame) = match enc_cmd {
+                [encoder, args @ ..] => Self::spawn_encoder_process_and_monitor(
+                    encoder,
+                    args,
+                    y4m_pipe,
+                    chunk,
+                    current_pass,
+                    worker_id,
+                    self.args.verbosity,
+                )?,
+                _ => unreachable!("Encoder command must not be empty"),
+            };
+
+            let source_pipe_stderr = pipe_stderr.lock().expect("mutex should acquire lock").clone();
+            let ffmpeg_pipe_stderr =
+                ffmpeg_stderr.map(|x| x.lock().expect("mutex should acquire lock").clone());
+
+            Ok((
+                source_pipe_stderr,
+                ffmpeg_pipe_stderr,
+                enc_output,
+                enc_stderr,
+                frame,
+            ))
+        })
+    }
+
     /// Returns the number of frames encoded if crashed, to reset the progress
     /// bar.
-    #[inline]
-    pub fn create_pipes(
+    pub fn encode_chunk(
         &self,
         chunk: &Chunk,
         current_pass: u8,
@@ -510,197 +742,34 @@ impl Av1anContext {
             .join("split")
             .join(format!("{name}_fpf", name = chunk.name()));
 
-        let video_params = chunk.video_params.clone();
-
-        let mut enc_cmd = if chunk.passes == 1 {
-            chunk.encoder.compose_1_1_pass(video_params, chunk.output())
-        } else if current_pass == 1 {
-            chunk
-                .encoder
-                .compose_1_2_pass(video_params, fpf_file.to_string_lossy().as_ref())
-        } else {
-            chunk.encoder.compose_2_2_pass(
-                video_params,
-                fpf_file.to_string_lossy().as_ref(),
-                chunk.output(),
-            )
-        };
-
-        if let Some(per_shot_target_quality_cq) = chunk.tq_cq {
-            enc_cmd = chunk.encoder.man_command(enc_cmd, per_shot_target_quality_cq as usize);
-        }
+        let enc_cmd =
+            Self::build_encoder_command(chunk, current_pass, &fpf_file).map_err(|e| (e, 0))?;
 
         let (source_pipe_stderr, ffmpeg_pipe_stderr, enc_output, enc_stderr, frame) =
-            thread::scope(|scope| -> Result<_, (anyhow::Error, u64)> {
-                let mut source_pipe = if let [source, args @ ..] = &*chunk.source_cmd {
-                    let mut command = Command::new(source);
-                    for arg in chunk.input.as_vspipe_args_vec().map_err(|e| (e, 0))? {
-                        command.args(["-a", &arg]);
-                    }
-                    command
-                        .args(args)
-                        .stdout(Stdio::piped())
-                        .stderr(Stdio::piped())
-                        .spawn()
-                        .map_err(|e| (e.into(), 0))?
-                } else {
-                    unreachable!()
-                };
+            Self::encode_with_pipes(self, chunk, current_pass, worker_id, &enc_cmd)?;
 
-                let source_pipe_stdout: Stdio =
-                    source_pipe.stdout.take().expect("source_pipe should have stdout").into();
-                let source_pipe_stderr =
-                    source_pipe.stderr.take().expect("source_pipe should have stderr");
+        Self::handle_post_encoding_validation(
+            chunk,
+            current_pass,
+            enc_output,
+            enc_stderr,
+            source_pipe_stderr,
+            ffmpeg_pipe_stderr,
+            frame,
+        )?;
 
-                // converts the pixel format
-                let create_ffmpeg_pipe = |pipe_from: Stdio, source_pipe_stderr: ChildStderr| {
-                    let ffmpeg_pipe = compose_ffmpeg_pipe(
-                        self.args.ffmpeg_filter_args.as_slice(),
-                        self.args.output_pix_format.format,
-                    );
+        Ok(())
+    }
 
-                    let mut ffmpeg_pipe = if let [ffmpeg, args @ ..] = &*ffmpeg_pipe {
-                        Command::new(ffmpeg)
-                            .args(args)
-                            .stdin(pipe_from)
-                            .stdout(Stdio::piped())
-                            .stderr(Stdio::piped())
-                            .spawn()
-                            .map_err(|e| (e.into(), 0))?
-                    } else {
-                        unreachable!()
-                    };
-
-                    let ffmpeg_pipe_stdout: Stdio =
-                        ffmpeg_pipe.stdout.take().expect("ffmpeg_pipe should have stdout").into();
-                    let ffmpeg_pipe_stderr =
-                        ffmpeg_pipe.stderr.take().expect("ffmpeg_pipe should have stderr");
-                    Ok((
-                        ffmpeg_pipe_stdout,
-                        source_pipe_stderr,
-                        Some(ffmpeg_pipe_stderr),
-                    ))
-                };
-
-                let (y4m_pipe, source_pipe_stderr, mut ffmpeg_pipe_stderr) =
-                    if self.args.ffmpeg_filter_args.is_empty() {
-                        match &self.args.input_pix_format {
-                            InputPixelFormat::FFmpeg { format } => {
-                                if self.args.output_pix_format.format == *format {
-                                    (source_pipe_stdout, source_pipe_stderr, None)
-                                } else {
-                                    create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)?
-                                }
-                            },
-                            InputPixelFormat::VapourSynth { bit_depth } => {
-                                if self.args.output_pix_format.bit_depth == *bit_depth {
-                                    (source_pipe_stdout, source_pipe_stderr, None)
-                                } else {
-                                    create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)?
-                                }
-                            },
-                        }
-                    } else {
-                        create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)?
-                    };
-
-                let source_reader = BufReader::new(source_pipe_stderr);
-                let ffmpeg_reader = ffmpeg_pipe_stderr.take().map(BufReader::new);
-
-                let pipe_stderr = Arc::new(Mutex::new(String::with_capacity(128)));
-                let p_stdr2 = Arc::clone(&pipe_stderr);
-
-                let ffmpeg_stderr = ffmpeg_reader
-                    .is_some()
-                    .then(|| Arc::new(Mutex::new(String::with_capacity(128))));
-
-                let f_stdr2 = ffmpeg_stderr.clone();
-
-                scope.spawn(move || {
-                    for line in source_reader.lines() {
-                        let mut lock = p_stdr2.lock().expect("mutex should acquire lock");
-                        lock.push_str(&line.expect("should read line successfully"));
-                        lock.push('\n');
-                    }
-                });
-                if let Some(ffmpeg_reader) = ffmpeg_reader {
-                    let f_stdr2 = f_stdr2.expect("f_stdr2 should exist if ffmpeg_reader exists");
-                    scope.spawn(move || {
-                        for line in ffmpeg_reader.lines() {
-                            let mut lock = f_stdr2.lock().expect("mutex should acquire lock");
-                            lock.push_str(&line.expect("should read line successfully"));
-                            lock.push('\n');
-                        }
-                    });
-                }
-
-                let mut enc_pipe = if let [encoder, args @ ..] = &*enc_cmd {
-                    Command::new(encoder)
-                        .args(args)
-                        .stdin(y4m_pipe)
-                        .stdout(Stdio::piped())
-                        .stderr(Stdio::piped())
-                        .spawn()
-                        .map_err(|e| (e.into(), 0))?
-                } else {
-                    unreachable!()
-                };
-
-                let mut frame = 0;
-
-                let mut reader =
-                    BufReader::new(enc_pipe.stderr.take().expect("enc_pipe should have stderr"));
-
-                let mut buf = Vec::with_capacity(128);
-                let mut enc_stderr = String::with_capacity(128);
-
-                while let Ok(read) = reader.read_until(b'\r', &mut buf) {
-                    if read == 0 {
-                        break;
-                    }
-
-                    if let Ok(line) = simdutf8::basic::from_utf8_mut(&mut buf) {
-                        // This needs to be done before parse_encoded_frames, as it potentially
-                        // mutates the string
-                        enc_stderr.push_str(line);
-                        enc_stderr.push('\n');
-
-                        if let Some(new) = chunk.encoder.parse_encoded_frames(line) {
-                            if current_pass == chunk.passes {
-                                if new > frame {
-                                    if self.args.verbosity == Verbosity::Normal {
-                                        inc_bar(new - frame);
-                                    } else if self.args.verbosity == Verbosity::Verbose {
-                                        inc_mp_bar(new - frame);
-                                    }
-                                    frame = new;
-                                }
-                            }
-
-                            if self.args.verbosity == Verbosity::Verbose {
-                                update_mp_msg_encoder(worker_id, current_pass, new, chunk.frames());
-                            }
-                        }
-                    }
-
-                    buf.clear();
-                }
-
-                let enc_output = enc_pipe.wait_with_output().expect("enc_pipe should finish");
-
-                let source_pipe_stderr =
-                    pipe_stderr.lock().expect("mutex should acquire lock").clone();
-                let ffmpeg_pipe_stderr =
-                    ffmpeg_stderr.map(|x| x.lock().expect("mutex should acquire lock").clone());
-                Ok((
-                    source_pipe_stderr,
-                    ffmpeg_pipe_stderr,
-                    enc_output,
-                    enc_stderr,
-                    frame,
-                ))
-            })?;
-
+    pub fn handle_post_encoding_validation(
+        chunk: &Chunk,
+        current_pass: u8,
+        enc_output: Output,
+        enc_stderr: String,
+        source_pipe_stderr: String,
+        ffmpeg_pipe_stderr: Option<String>,
+        frame: u64,
+    ) -> Result<(), (anyhow::Error, u64)> {
         if !enc_output.status.success() {
             return Err((
                 EncoderCrash {
@@ -724,7 +793,7 @@ impl Av1anContext {
                 {
                     Some(format!(
                         "FRAME MISMATCH: chunk {index}: {encoded_frames}/{expected} \
-                         (actual/expected frames)",
+                     (actual/expected frames)",
                         index = chunk.index,
                         expected = chunk.frames()
                     ))
@@ -1243,4 +1312,10 @@ impl Av1anContext {
             Ok((chunks, num_chunks))
         }
     }
+}
+
+pub struct EncoderHandle {
+    pub child: Child,
+    pub stderr_thread: Option<thread::JoinHandle<()>>,
+    pub stderr_content: Arc<Mutex<String>>,
 }

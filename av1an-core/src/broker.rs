@@ -310,7 +310,7 @@ impl Broker<'_> {
         let passes = chunk.passes;
         for current_pass in 1..=passes {
             for r#try in 1..=self.project.args.max_tries {
-                let res = self.project.create_pipes(chunk, current_pass, worker_id, padding);
+                let res = self.project.encode_chunk(chunk, current_pass, worker_id, padding);
                 if let Err((e, frames)) = res {
                     dec_bar(frames);
 
