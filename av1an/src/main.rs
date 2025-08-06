@@ -12,7 +12,7 @@ use av1an_core::{
     ffmpeg::FFPixelFormat,
     hash_path, into_vec, read_in_dir,
     vapoursynth::{get_vapoursynth_plugins, VSZipVersion},
-    Av1anContext, ChunkMethod, ChunkOrdering, ConcatMethod, EncodeArgs, Encoder, Input,
+    Av1anEncode, ChunkMethod, ChunkOrdering, ConcatMethod, EncodeArgs, Encoder, Input,
     InputPixelFormat, InterpolationMethod, PixelFormat, ScenecutMethod, SplitMethod, TargetMetric,
     TargetQuality, Verbosity, VmafFeature,
 };
@@ -1017,9 +1017,9 @@ pub fn parse_cli(args: CliOpts) -> anyhow::Result<Vec<EncodeArgs>> {
         )?;
 
         // Instantiates VapourSynth cache(s) if applicable
-        let clip_info = input.clip_info()?;
+        let clip_info = input.get_clip_info()?;
         if let Some(proxy) = &proxy {
-            proxy.clip_info()?;
+            proxy.get_clip_info()?;
         }
         // TODO make an actual constructor for this
         let arg = EncodeArgs {
@@ -1208,7 +1208,7 @@ pub fn run() -> anyhow::Result<()> {
 
     let args = parse_cli(cli_options)?;
     for arg in args {
-        Av1anContext::new(arg)?.encode_file()?;
+        Av1anEncode::new(arg)?.encode_file()?;
     }
 
     Ok(())

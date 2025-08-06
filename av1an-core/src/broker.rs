@@ -20,7 +20,7 @@ use tracing::{debug, error, warn};
 
 use crate::progress_bar::suspend_progress_and_do;
 use crate::{
-    context::Av1anContext,
+    context::Av1anEncode,
     finish_progress_bar, get_done,
     progress_bar::{
         dec_bar, inc_mp_bar, update_mp_chunk, update_mp_msg, update_progress_bar_estimates,
@@ -32,7 +32,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Broker<'a> {
     pub chunk_queue: Vec<Chunk>,
-    pub project: &'a Av1anContext,
+    pub project: &'a Av1anEncode,
 }
 
 #[derive(Clone)]

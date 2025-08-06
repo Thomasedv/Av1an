@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
 use crate::{
-    context::Av1anContext,
+    context::Av1anEncode,
     encoder::Encoder,
     scenes::{Scene, SceneFactory},
     InterpolationMethod, ProbingStatistic, TargetMetric, TargetQuality,
 };
 
-fn get_test_args() -> Av1anContext {
+fn get_test_args() -> Av1anEncode {
     use std::path::PathBuf;
 
     use crate::{
@@ -77,7 +77,7 @@ fn get_test_args() -> Av1anContext {
         probe_res: None,
         vapoursynth_plugins: None,
     };
-    Av1anContext {
+    Av1anEncode {
         vs_script: None,
         vs_proxy_script: None,
         frames: 6900,

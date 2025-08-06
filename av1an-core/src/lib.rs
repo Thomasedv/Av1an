@@ -27,7 +27,7 @@ use tracing::info;
 
 pub use crate::{
     concat::ConcatMethod,
-    context::Av1anContext,
+    context::Av1anEncode,
     encoder::Encoder,
     settings::{EncodeArgs, InputPixelFormat, PixelFormat},
     target_quality::{InterpolationMethod, TargetQuality},
@@ -51,6 +51,7 @@ mod metrics {
     pub mod vmaf;
     pub mod xpsnr;
 }
+mod bootstrap;
 mod interpol;
 mod parse;
 mod progress_bar;
@@ -166,7 +167,7 @@ impl Input {
                 is_proxy,
             )?;
 
-            input.clip_info()?;
+            input.get_clip_info()?;
         }
 
         Ok(input)
@@ -300,7 +301,7 @@ impl Input {
     }
 
     #[inline]
-    pub fn clip_info(&self) -> anyhow::Result<ClipInfo> {
+    pub fn get_clip_info(&self) -> anyhow::Result<ClipInfo> {
         const FAIL_MSG: &str = "Failed to get number of frames for input video";
 
         let mut cache = CLIP_INFO_CACHE.lock().expect("mutex should acquire lock");
@@ -331,7 +332,7 @@ impl Input {
     /// Return number of horizontal and vertical tiles
     #[inline]
     pub fn calculate_tiles(&self) -> (u32, u32) {
-        match self.clip_info().map(|info| info.resolution) {
+        match self.get_clip_info().map(|info| info.resolution) {
             Ok((h, v)) => {
                 // tile range 0-1440 pixels
                 let horizontal = max((h - 1) / 720, 1);
@@ -527,18 +528,24 @@ pub enum TargetMetric {
 
 /// Determine the optimal number of workers for an encoder
 #[inline]
-pub fn determine_workers(args: &EncodeArgs) -> anyhow::Result<u64> {
-    let res = args.input.clip_info()?.resolution;
-    let tiles = args.tiles;
+pub fn determine_workers(
+    input: Input,
+    tiles: (u32, u32),
+    chunk_method: ChunkMethod,
+    encoder: Encoder,
+    output_pixel_format: PixelFormat,
+) -> anyhow::Result<u64> {
+    let res = input.get_clip_info()?.resolution;
+    let tiles = tiles;
     let megapixels = (res.0 * res.1) as f64 / 1e6;
     // encoder memory and chunk_method memory usage scales with resolution
     // (megapixels), approximately linearly. Expressed as GB/Megapixel
-    let cm_ram = match args.chunk_method {
+    let cm_ram = match chunk_method {
         ChunkMethod::FFMS2 | ChunkMethod::LSMASH | ChunkMethod::BESTSOURCE => 0.3,
         ChunkMethod::DGDECNV => 0.3,
         ChunkMethod::Hybrid | ChunkMethod::Select | ChunkMethod::Segment => 0.1,
     };
-    let enc_ram = match args.encoder {
+    let enc_ram = match encoder {
         Encoder::aom => 0.4,
         Encoder::rav1e => 0.7,
         Encoder::svt_av1 => 1.2,
@@ -551,7 +558,7 @@ pub fn determine_workers(args: &EncodeArgs) -> anyhow::Result<u64> {
     // Other encoders don't seem to significantly scale CPU usage with tiles.
     // CPU threads/worker here is relative to default threading parameters, e.g. aom
     // will use 1 thread/worker if --threads=1 is set.
-    let cpu_threads = match args.encoder {
+    let cpu_threads = match encoder {
         Encoder::aom => 4,
         Encoder::rav1e => ((tiles.0 * tiles.1) as f32 * 0.7).ceil() as u64,
         Encoder::svt_av1 => 6,
@@ -560,7 +567,7 @@ pub fn determine_workers(args: &EncodeArgs) -> anyhow::Result<u64> {
     };
     // memory usage scales with pixel format, expressed as a multiplier of memory
     // usage. Roughly the same behavior was observed accross all encoders.
-    let pix_mult = match args.output_pix_format.format {
+    let pix_mult = match output_pixel_format.format {
         FFPixelFormat::YUV444P | FFPixelFormat::YUV444P10LE | FFPixelFormat::YUV444P12LE => 1.5,
         FFPixelFormat::YUV422P | FFPixelFormat::YUV422P10LE | FFPixelFormat::YUV422P12LE => 1.25,
         _ => 1.0,

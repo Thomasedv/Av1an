@@ -435,7 +435,7 @@ impl SceneFactory {
         // We should only be calling this when scenes haven't been created yet
         debug_assert!(self.data.scenes.is_none());
 
-        let frames = args.input.clip_info()?.num_frames;
+        let frames = args.input.get_clip_info()?.num_frames;
 
         let (mut scenes, frames, scores) = match args.split_method {
             SplitMethod::AvScenechange => av_scenechange_detect(

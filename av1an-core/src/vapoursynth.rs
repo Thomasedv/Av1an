@@ -203,7 +203,7 @@ fn get_num_frames(info: &VideoInfo) -> anyhow::Result<usize> {
         num_frames
     };
 
-    assert!(num_frames != 0, "vapoursynth reported 0 frames");
+    assert_ne!(num_frames, 0, "vapoursynth reported 0 frames");
 
     Ok(num_frames)
 }
@@ -314,7 +314,7 @@ fn import_lsmash<'core>(
     let lsmash = get_plugin(core, PluginId::Lsmash)?;
     let absolute_encoded_path = absolute(encoded)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set(
         "source",
         &absolute_encoded_path.as_os_str().as_encoded_bytes(),
@@ -347,7 +347,7 @@ fn import_ffms2<'core>(
     let ffms2 = get_plugin(core, PluginId::Ffms2)?;
     let absolute_encoded_path = absolute(encoded)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set(
         "source",
         &absolute_encoded_path.as_os_str().as_encoded_bytes(),
@@ -379,7 +379,7 @@ fn import_bestsource<'core>(
     let bestsource = get_plugin(core, PluginId::BestSource)?;
     let absolute_encoded_path = absolute(encoded)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set(
         "source",
         &absolute_encoded_path.as_os_str().as_encoded_bytes(),
@@ -433,7 +433,7 @@ fn trim_node<'core>(
     let api = API::get().ok_or_else(|| anyhow::anyhow!("Failed to get VapourSynth API"))?;
     let std = get_plugin(core, PluginId::Std)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set("clip", node)?;
     arguments.set("first", &(start as i64))?;
     arguments.set("last", &(end as i64))?;
@@ -458,7 +458,7 @@ pub fn resize_node<'core>(
     let api = API::get().ok_or_else(|| anyhow::anyhow!("Failed to get VapourSynth API"))?;
     let std = get_plugin(core, PluginId::Resize)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set("clip", node)?;
     if let Some(width) = width {
         arguments.set_int("width", width as i64)?;
@@ -493,7 +493,7 @@ fn select_every<'core>(
     let api = API::get().ok_or_else(|| anyhow::anyhow!("Failed to get VapourSynth API"))?;
     let std = get_plugin(core, PluginId::Std)?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set("clip", node)?;
     arguments.set_int("cycle", n as i64)?;
     arguments.set_int_array("offsets", &[0])?;
@@ -535,7 +535,7 @@ fn compare_ssimulacra2<'core>(
         }
     );
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set("reference", source)?;
     arguments.set("distorted", encoded)?;
 
@@ -602,7 +602,7 @@ fn compare_butteraugli<'core>(
         },
     )?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set_int("distmap", 1)?;
 
     if plugins.vship {
@@ -693,7 +693,7 @@ fn compare_xpsnr<'core>(
         None,
     )?;
 
-    let mut arguments = vapoursynth::map::OwnedMap::new(api);
+    let mut arguments = OwnedMap::new(api);
     arguments.set("reference", &formatted_source)?;
     arguments.set("distorted", &formatted_encoded)?;
 

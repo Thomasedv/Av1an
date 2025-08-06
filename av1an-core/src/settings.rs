@@ -145,8 +145,8 @@ impl EncodeArgs {
             );
 
             // Frame count must match
-            let input_frame_count = self.input.clip_info()?.num_frames;
-            let proxy_frame_count = proxy.clip_info()?.num_frames;
+            let input_frame_count = self.input.get_clip_info()?.num_frames;
+            let proxy_frame_count = proxy.get_clip_info()?.num_frames;
 
             ensure!(
                 input_frame_count == proxy_frame_count,

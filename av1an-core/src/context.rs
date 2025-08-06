@@ -1,10 +1,12 @@
-use anyhow::Context;
+use anyhow::{Context, Error};
 use av1_grain::TransferFunction;
 use av_decoders::VapoursynthDecoder;
 use colored::*;
 use itertools::Itertools;
+use nom::error::context;
 use num_traits::cast::ToPrimitive;
 use rand::{prelude::SliceRandom, rng};
+use std::env::args;
 use std::process::{Child, Output};
 use std::{
     borrow::Cow,
@@ -23,6 +25,9 @@ use std::{
 };
 use tracing::{debug, error, info, warn};
 
+use crate::bootstrap::prepare_environment;
+use crate::ffmpeg::FFPixelFormat;
+use crate::vapoursynth::VapoursynthPlugins;
 use crate::{
     broker::{Broker, EncoderCrash},
     chunk::Chunk,
@@ -42,202 +47,285 @@ use crate::{
     split::segment,
     vapoursynth::create_vs_file,
     zones::parse_zones,
-    ChunkMethod, ChunkOrdering, DashMap, DoneJson, Input, Verbosity,
+    ChunkMethod, ChunkOrdering, DashMap, DoneJson, Encoder, Input, PixelFormat, ScenecutMethod,
+    SplitMethod, TargetQuality, Verbosity,
 };
 
 #[derive(Debug)]
-pub struct Av1anContext {
+pub struct Av1anEncode {
     pub frames: usize,
-    pub vs_script: Option<PathBuf>,
-    pub vs_proxy_script: Option<PathBuf>,
-    pub args: EncodeArgs,
+    pub vapoursynth_options: VapoursynthOption,
+    pub av1an_config: Av1anConfiguration,
+    pub target_quality_options: TargetQualityOptions,
+    pub resume_options: ResumeOption,
+    pub encoder_options: EncoderOption,
     pub(crate) scene_factory: SceneFactory,
 }
 
-impl Av1anContext {
+#[derive(Debug)]
+pub struct Av1anConfiguration {
+    pub input: Input,
+    pub proxy_input: Option<Input>,
+    pub chunk_method: ChunkMethod,
+    pub chunk_order: ChunkOrdering,
+    pub scaler: String,
+    pub scenes: Option<PathBuf>,
+    pub split_method: SplitMethod,
+    pub sc_pix_format: Option<FFPixelFormat>,
+    pub sc_method: ScenecutMethod,
+    pub sc_only: bool,
+    pub sc_downscale_height: Option<usize>,
+    pub extra_splits_len: Option<usize>,
+    pub min_scene_len: usize,
+    pub force_keyframes: Vec<usize>,
+    pub ignore_frame_mismatch: bool,
+    pub workers: usize,
+    pub set_thread_affinity: Option<usize>,
+}
+
+impl Av1anConfiguration {
+    fn from_args(args: &EncodeArgs) -> Self {
+        Av1anConfiguration {
+            input: args.input.clone(),
+            proxy_input: args.proxy.clone(),
+            chunk_method: args.chunk_method,
+            chunk_order: args.chunk_order,
+            scaler: args.scaler.clone(),
+            scenes: args.scenes.clone(),
+            split_method: args.split_method.clone(),
+            sc_pix_format: args.sc_pix_format.clone(),
+            sc_method: args.sc_method,
+            sc_only: args.sc_only,
+            sc_downscale_height: args.sc_downscale_height,
+            extra_splits_len: args.extra_splits_len,
+            min_scene_len: args.min_scene_len,
+            force_keyframes: args.force_keyframes.clone(),
+            ignore_frame_mismatch: args.ignore_frame_mismatch,
+            workers: args.workers,
+            set_thread_affinity: args.set_thread_affinity,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct EncoderOption {
+    pub passes: u8,
+    pub video_params: Vec<String>,
+    pub verbosity: Verbosity,
+    pub no_defaults: bool,
+    pub tile_auto: bool,
+    pub tiles: (u32, u32), /* tile (cols, rows) count; log2 will be applied later
+                            * for specific encoders */
+    pub encoder: Encoder,
+
+    // FFmpeg params
+    pub ffmpeg_filter_args: Vec<String>,
+    pub audio_params: Vec<String>,
+    pub input_pix_format: InputPixelFormat,
+    pub output_pix_format: PixelFormat,
+}
+
+impl EncoderOption {
+    fn from_args(args: &EncodeArgs) -> Self {
+        Self {
+            passes: args.passes,
+            video_params: args.video_params.clone(),
+            verbosity: args.verbosity,
+            no_defaults: args.no_defaults,
+            tile_auto: args.tile_auto,
+            tiles: args.tiles,
+            encoder: args.encoder,
+            ffmpeg_filter_args: args.ffmpeg_filter_args.clone(),
+            audio_params: args.audio_params.clone(),
+            input_pix_format: args.input_pix_format,
+            output_pix_format: args.output_pix_format,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct VapoursynthOption {
+    pub vs_script: Option<PathBuf>,
+    pub vs_proxy_script: Option<PathBuf>,
+    pub vapoursynth_plugins: Option<VapoursynthPlugins>,
+}
+
+#[derive(Debug)]
+pub struct TargetQualityOptions {
+    pub target_quality: TargetQuality,
+    pub vmaf: bool,
+    pub vmaf_path: Option<PathBuf>,
+    pub vmaf_res: String,
+    pub probe_res: Option<String>,
+    pub vmaf_threads: Option<usize>,
+    pub vmaf_filter: Option<String>,
+}
+
+impl TargetQualityOptions {
+    fn from_args(args: &EncodeArgs) -> Self {
+        Self {
+            target_quality: args.target_quality.clone(),
+            vmaf: args.vmaf,
+            vmaf_path: args.vmaf_path.clone(),
+            vmaf_res: args.vmaf_res.clone(),
+            probe_res: args.probe_res.clone(),
+            vmaf_threads: args.vmaf_threads.clone(),
+            vmaf_filter: args.vmaf_filter.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ResumeOption {
+    pub temp: String,
+    pub resume: bool,
+    pub keep: bool,
+    pub force: bool,
+}
+
+impl ResumeOption {
+    pub fn fromArgs(encode_args: &EncodeArgs) -> Self {
+        Self {
+            temp: encode_args.temp.clone(),
+            resume: encode_args.resume,
+            force: encode_args.force,
+            keep: encode_args.keep,
+        }
+    }
+}
+
+impl Av1anEncode {
     #[tracing::instrument(level = "debug")]
     pub fn new(mut args: EncodeArgs) -> anyhow::Result<Self> {
         args.validate()?;
 
-        let mut this = Self {
-            frames: args.input.clip_info()?.num_frames,
+        let av1an_config = Av1anConfiguration::from_args(&args);
+
+        let target_quality_options = TargetQualityOptions::from_args(&args);
+        let encoder_options = EncoderOption::from_args(&args);
+        let mut resume_options = ResumeOption::fromArgs(&args);
+        let mut frames = prepare_environment(&mut resume_options)?;
+
+        if frames == 0 {
+            frames = av1an_config.input.get_clip_info()?.num_frames;
+        }
+
+        let vapoursynth_options = VapoursynthOption {
             vs_script: None,
             vs_proxy_script: None,
-            args,
-            scene_factory: SceneFactory::new(),
+            vapoursynth_plugins: args.vapoursynth_plugins,
         };
-        this.initialize()?;
+
+        let this = Self {
+            frames,
+            vapoursynth_options,
+            av1an_config,
+            scene_factory: SceneFactory::new(),
+            target_quality_options,
+            resume_options,
+            encoder_options,
+        };
         Ok(this)
     }
 
-    /// Initialize logging routines and create temporary directories
-    #[tracing::instrument(level = "debug")]
-    fn initialize(&mut self) -> anyhow::Result<()> {
-        if !self.args.resume && Path::new(&self.args.temp).is_dir() {
-            fs::remove_dir_all(&self.args.temp).with_context(|| {
-                format!(
-                    "Failed to remove temporary directory {temp}",
-                    temp = self.args.temp
-                )
-            })?;
-        }
-
-        create_dir!(Path::new(&self.args.temp))?;
-        create_dir!(Path::new(&self.args.temp).join("split"))?;
-        create_dir!(Path::new(&self.args.temp).join("encode"))?;
-
-        debug!("temporary directory: {temp}", temp = &self.args.temp);
-
-        let done_path = Path::new(&self.args.temp).join("done.json");
-        let done_json_exists = done_path.exists();
-        let chunks_json_exists = Path::new(&self.args.temp).join("chunks.json").exists();
-
-        if self.args.resume {
-            match (done_json_exists, chunks_json_exists) {
-                // both files exist, so there is no problem
-                (true, true) => {},
-                (false, true) => {
-                    info!(
-                        "resume was set but done.json does not exist in temporary directory {temp}",
-                        temp = self.args.temp
-                    );
-                    self.args.resume = false;
-                },
-                (true, false) => {
-                    info!(
-                        "resume was set but chunks.json does not exist in temporary directory \
-                         {temp}",
-                        temp = self.args.temp
-                    );
-                    self.args.resume = false;
-                },
-                (false, false) => {
-                    info!(
-                        "resume was set but neither chunks.json nor done.json exist in temporary \
-                         directory {temp}",
-                        temp = self.args.temp
-                    );
-                    self.args.resume = false;
-                },
-            }
-        }
-
-        if self.args.resume && done_json_exists {
-            let done = fs::read_to_string(done_path)
-                .with_context(|| "Failed to read contents of done.json")?;
-            let done: DoneJson =
-                serde_json::from_str(&done).with_context(|| "Failed to parse done.json")?;
-            self.frames = done.frames.load(atomic::Ordering::Relaxed);
-
-            // frames need to be recalculated in this case
-            if self.frames == 0 {
-                self.frames = self.args.input.clip_info()?.num_frames;
-                done.frames.store(self.frames, atomic::Ordering::Relaxed);
-            }
-
-            init_done(done);
-        } else {
-            init_done(DoneJson {
-                frames: AtomicUsize::new(0),
-                done: DashMap::new(),
-                audio_done: AtomicBool::new(false),
-            });
-
-            let mut done_file = File::create(&done_path)?;
-            done_file.write_all(serde_json::to_string(get_done())?.as_bytes())?;
+    fn create_vs_script(
+        vs_input: &Input,
+        resume_option: &ResumeOption,
+        encoding_configuration: &Av1anConfiguration,
+    ) -> Result<PathBuf, anyhow::Error> {
+        let script_path = match vs_input {
+            Input::VapourSynth { path, .. } => path.clone(),
+            Input::Video { path, is_proxy, .. } => {
+                let (script_path, _) = create_vs_file(
+                    &resume_option.temp,
+                    path,
+                    encoding_configuration.chunk_method,
+                    encoding_configuration.sc_downscale_height,
+                    encoding_configuration.sc_pix_format,
+                    &encoding_configuration.scaler,
+                    *is_proxy,
+                )?;
+                script_path
+            },
         };
 
-        Ok(())
+        let variables_map = vs_input.as_vspipe_args_hashmap()?;
+        let decoder = match vs_input {
+            Input::VapourSynth { path, .. } => {
+                let mut dec = VapoursynthDecoder::from_file(path)?;
+                dec.set_variables(variables_map)?;
+                av_scenechange::Decoder::from_decoder_impl(av_decoders::DecoderImpl::Vapoursynth(
+                    dec,
+                ))?
+            },
+            video_input => av_scenechange::Decoder::from_script(
+                &video_input.as_script_text(
+                    encoding_configuration.sc_downscale_height,
+                    encoding_configuration.sc_pix_format,
+                    Some(&encoding_configuration.scaler),
+                )?,
+                Some(variables_map),
+            )?,
+        };
+        // Getting the details will evaluate the script and produce the VapourSynth
+        // cache file
+        decoder.get_video_details();
+
+        Ok::<PathBuf, anyhow::Error>(script_path)
     }
 
     #[tracing::instrument(skip(self))]
-    #[inline]
     pub fn encode_file(&mut self) -> anyhow::Result<()> {
         let initial_frames =
             get_done().done.iter().map(|ref_multi| ref_multi.frames).sum::<usize>();
-
-        // Create the VapourSynth script file and store the path to it and evaluate it
-        let cache_vs_input = |vs_input: &Input| {
-            let script_path = match vs_input {
-                Input::VapourSynth { path, .. } => path.clone(),
-                Input::Video { path, is_proxy, .. } => {
-                    let (script_path, _) = create_vs_file(
-                        &self.args.temp,
-                        path,
-                        self.args.chunk_method,
-                        self.args.sc_downscale_height,
-                        self.args.sc_pix_format,
-                        &self.args.scaler,
-                        *is_proxy,
-                    )?;
-                    script_path
-                },
-            };
-
-            let variables_map = vs_input.as_vspipe_args_hashmap()?;
-            let decoder = match vs_input {
-                Input::VapourSynth { path, .. } => {
-                    let mut dec = VapoursynthDecoder::from_file(path)?;
-                    dec.set_variables(variables_map)?;
-                    av_scenechange::Decoder::from_decoder_impl(
-                        av_decoders::DecoderImpl::Vapoursynth(dec),
-                    )?
-                },
-                video_input => av_scenechange::Decoder::from_script(
-                    &video_input.as_script_text(
-                        self.args.sc_downscale_height,
-                        self.args.sc_pix_format,
-                        Some(&self.args.scaler),
-                    )?,
-                    Some(variables_map),
-                )?,
-            };
-            // Getting the details will evaluate the script and produce the VapourSynth
-            // cache file
-            decoder.get_video_details();
-
-            Ok::<PathBuf, anyhow::Error>(script_path)
-        };
 
         // Technically we should check if the vapoursynth cache file exists rather than
         // !self.resume, but the code still works if we are resuming and the
         // cache file doesn't exist (as it gets generated when vspipe is first
         // called), so it's not worth adding all the extra complexity.
-        if (self.args.input.is_vapoursynth()
-            || (self.args.input.is_video()
+        if (self.av1an_config.input.is_vapoursynth()
+            || (self.av1an_config.input.is_video()
                 && matches!(
-                    self.args.chunk_method,
+                    self.av1an_config.chunk_method,
                     ChunkMethod::LSMASH
                         | ChunkMethod::FFMS2
                         | ChunkMethod::DGDECNV
                         | ChunkMethod::BESTSOURCE
                 )))
-            && !self.args.resume
+            && !self.resume_options.resume
         {
-            self.vs_script = Some(cache_vs_input(&self.args.input)?);
+            self.vapoursynth_options.vs_script = Some(Self::create_vs_script(
+                &self.av1an_config.input,
+                &self.resume_options,
+                &self.av1an_config,
+            )?);
         }
-        if let Some(proxy) = &self.args.proxy {
+        if let Some(proxy) = &self.av1an_config.proxy_input {
             if proxy.is_vapoursynth()
                 || (proxy.is_video()
                     && matches!(
-                        self.args.chunk_method,
+                        self.av1an_config.chunk_method,
                         ChunkMethod::LSMASH
                             | ChunkMethod::FFMS2
                             | ChunkMethod::DGDECNV
                             | ChunkMethod::BESTSOURCE
                     )
-                    && !self.args.resume)
+                    && !self.resume_options.resume)
             {
-                self.vs_proxy_script = Some(cache_vs_input(proxy)?);
+                self.vapoursynth_options.vs_proxy_script = Some(Self::create_vs_script(
+                    proxy,
+                    &self.resume_options,
+                    &self.av1an_config,
+                )?);
             }
         }
 
-        let clip_info = self.args.input.clip_info()?;
+        let clip_info = self.av1an_config.input.get_clip_info()?;
         let res = clip_info.resolution;
         let fps_ratio = clip_info.frame_rate;
         let fps = fps_ratio.to_f64().expect("fps_ratio is not NaN");
         let format = clip_info.format_info;
-        let tfc = clip_info.transfer_function_params_adjusted(&self.args.video_params);
+        let tfc = clip_info.transfer_function_params_adjusted(&self.encoder_options.video_params);
         info!(
             "Input: {}x{} @ {:.3} fps, {}, {}",
             res.0,
@@ -255,7 +343,7 @@ impl Av1anContext {
 
         let splits = self.split_routine()?.to_vec();
 
-        if self.args.sc_only {
+        if self.av1an_config.sc_only {
             debug!("scene detection only");
 
             if let Err(e) = fs::remove_dir_all(&self.args.temp) {
@@ -268,7 +356,7 @@ impl Av1anContext {
         let (chunk_queue, total_chunks) = self.load_or_gen_chunk_queue(&splits)?;
 
         let mut chunks_done = 0;
-        if self.args.resume {
+        if self.resume_options.resume {
             chunks_done = get_done().done.len();
             info!(
                 "encoding resumed with {}/{} chunks completed ({} remaining)",
@@ -280,12 +368,12 @@ impl Av1anContext {
 
         crossbeam_utils::thread::scope(|s| -> anyhow::Result<()> {
             // vapoursynth audio is currently unsupported
-            let audio_thread = (self.args.input.is_video()
+            let audio_thread = (self.av1an_config.input.is_video()
                 && (!self.args.resume || !get_done().audio_done.load(atomic::Ordering::SeqCst)))
             .then(|| {
-                let input = self.args.input.as_video_path();
-                let temp = self.args.temp.as_str();
-                let audio_params = self.args.audio_params.as_slice();
+                let input = self.av1an_config.input.as_video_path();
+                let temp = self.resume_options.temp.as_str();
+                let audio_params = self.encoder_options.audio_params.as_slice();
                 s.spawn(move |_| -> anyhow::Result<_> {
                     let audio_output = crate::ffmpeg::encode_audio(input, temp, audio_params)?;
                     get_done().audio_done.store(true, atomic::Ordering::SeqCst);
@@ -304,7 +392,13 @@ impl Av1anContext {
             });
 
             if self.args.workers == 0 {
-                self.args.workers = determine_workers(&self.args)? as usize;
+                self.args.workers = determine_workers(
+                    self.av1an_config.input,
+                    self.encoder_options.tiles,
+                    self.av1an_config.chunk_method,
+                    self.encoder_options.encoder,
+                    self.encoder_options.output_pix_format,
+                )? as usize;
             }
             self.args.workers = cmp::min(self.args.workers, chunk_queue.len());
 

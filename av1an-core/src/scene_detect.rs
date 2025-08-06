@@ -44,7 +44,7 @@ pub fn av_scenechange_detect(
 
     let input2 = input.clone();
     let frame_thread = thread::spawn(move || -> anyhow::Result<usize> {
-        let frames = input2.clip_info()?.num_frames;
+        let frames = input2.get_clip_info()?.num_frames;
         if verbosity != Verbosity::Quiet {
             progress_bar::convert_to_progress(0);
             progress_bar::set_len(frames as u64);
@@ -216,7 +216,7 @@ fn build_decoder(
     sc_pix_format: Option<FFPixelFormat>,
     sc_downscale_height: Option<usize>,
 ) -> anyhow::Result<(Decoder, usize)> {
-    let clip_info = input.clip_info()?;
+    let clip_info = input.get_clip_info()?;
     let (input_width, input_height) = clip_info.resolution;
 
     // Only downscale if needed
