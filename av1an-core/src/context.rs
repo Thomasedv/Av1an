@@ -66,6 +66,7 @@ pub struct Av1anEncode {
 pub struct Av1anConfiguration {
     pub input: Input,
     pub proxy_input: Option<Input>,
+    pub output_file: String,
     pub chunk_method: ChunkMethod,
     pub chunk_order: ChunkOrdering,
     pub scaler: String,
@@ -81,6 +82,7 @@ pub struct Av1anConfiguration {
     pub ignore_frame_mismatch: bool,
     pub workers: usize,
     pub set_thread_affinity: Option<usize>,
+    pub concat: ConcatMethod,
 }
 
 impl Av1anConfiguration {
@@ -90,6 +92,7 @@ impl Av1anConfiguration {
             proxy_input: args.proxy.clone(),
             chunk_method: args.chunk_method,
             chunk_order: args.chunk_order,
+            concat: args.concat,
             scaler: args.scaler.clone(),
             scenes: args.scenes.clone(),
             split_method: args.split_method.clone(),
@@ -103,6 +106,7 @@ impl Av1anConfiguration {
             ignore_frame_mismatch: args.ignore_frame_mismatch,
             workers: args.workers,
             set_thread_affinity: args.set_thread_affinity,
+            output_file: args.output_file.clone(),
         }
     }
 }
@@ -232,7 +236,7 @@ impl Av1anEncode {
         vs_input: &Input,
         resume_option: &ResumeOption,
         encoding_configuration: &Av1anConfiguration,
-    ) -> Result<PathBuf, anyhow::Error> {
+    ) -> Result<PathBuf, Error> {
         let script_path = match vs_input {
             Input::VapourSynth { path, .. } => path.clone(),
             Input::Video { path, is_proxy, .. } => {
@@ -271,7 +275,7 @@ impl Av1anEncode {
         // cache file
         decoder.get_video_details();
 
-        Ok::<PathBuf, anyhow::Error>(script_path)
+        Ok::<PathBuf, Error>(script_path)
     }
 
     #[tracing::instrument(skip(self))]
@@ -346,7 +350,7 @@ impl Av1anEncode {
         if self.av1an_config.sc_only {
             debug!("scene detection only");
 
-            if let Err(e) = fs::remove_dir_all(&self.args.temp) {
+            if let Err(e) = fs::remove_dir_all(&self.resume_options.temp) {
                 warn!("Failed to delete temp directory: {e}");
             }
 
@@ -369,7 +373,8 @@ impl Av1anEncode {
         crossbeam_utils::thread::scope(|s| -> anyhow::Result<()> {
             // vapoursynth audio is currently unsupported
             let audio_thread = (self.av1an_config.input.is_video()
-                && (!self.args.resume || !get_done().audio_done.load(atomic::Ordering::SeqCst)))
+                && (!self.resume_options.resume
+                    || !get_done().audio_done.load(atomic::Ordering::SeqCst)))
             .then(|| {
                 let input = self.av1an_config.input.as_video_path();
                 let temp = self.resume_options.temp.as_str();
@@ -391,16 +396,16 @@ impl Av1anEncode {
                 })
             });
 
-            if self.args.workers == 0 {
-                self.args.workers = determine_workers(
-                    self.av1an_config.input,
+            if self.av1an_config.workers == 0 {
+                self.av1an_config.workers = determine_workers(
+                    &self.av1an_config.input,
                     self.encoder_options.tiles,
                     self.av1an_config.chunk_method,
                     self.encoder_options.encoder,
                     self.encoder_options.output_pix_format,
                 )? as usize;
             }
-            self.args.workers = cmp::min(self.args.workers, chunk_queue.len());
+            self.av1an_config.workers = cmp::min(self.av1an_config.workers, chunk_queue.len());
 
             info!(
                 "\n{}{} {} {}{} {} {}{} {} {}{} {}\n{}: {}",
@@ -409,28 +414,28 @@ impl Av1anEncode {
                 format!("{len}", len = chunk_queue.len()).green().bold(),
                 "W".blue().bold(),
                 "orkers".blue(),
-                format!("{workers}", workers = self.args.workers).blue().bold(),
+                format!("{workers}", workers = self.av1an_config.workers).blue().bold(),
                 "E".purple().bold(),
                 "ncoder".purple(),
-                format!("{encoder}", encoder = self.args.encoder).purple().bold(),
+                format!("{encoder}", encoder = self.encoder_options.encoder).purple().bold(),
                 "P".purple().bold(),
                 "asses".purple(),
-                format!("{passes}", passes = self.args.passes).purple().bold(),
+                format!("{passes}", passes = self.encoder_options.passes).purple().bold(),
                 "Params".bold(),
-                self.args.video_params.join(" ").dimmed()
+                self.encoder_options.video_params.join(" ").dimmed()
             );
 
-            if self.args.verbosity == Verbosity::Normal {
+            if self.encoder_options.verbosity == Verbosity::Normal {
                 init_progress_bar(
                     self.frames as u64,
                     initial_frames as u64,
                     Some((chunks_done as u32, total_chunks as u32)),
                 );
                 reset_bar_at(initial_frames as u64);
-            } else if self.args.verbosity == Verbosity::Verbose {
+            } else if self.encoder_options.verbosity == Verbosity::Verbose {
                 init_multi_progress_bar(
                     self.frames as u64,
-                    self.args.workers,
+                    self.av1an_config.workers,
                     initial_frames as u64,
                     (chunks_done as u32, total_chunks as u32),
                 );
@@ -441,7 +446,7 @@ impl Av1anEncode {
                 update_progress_bar_estimates(
                     fps,
                     self.frames,
-                    self.args.verbosity,
+                    self.encoder_options.verbosity,
                     (chunks_done as u32, total_chunks as u32),
                 );
             }
@@ -453,7 +458,11 @@ impl Av1anEncode {
 
             let (tx, rx) = mpsc::channel();
             let handle = s.spawn(|_| -> anyhow::Result<()> {
-                broker.encoding_loop(tx, self.args.set_thread_affinity, total_chunks as u32)?;
+                broker.encoding_loop(
+                    tx,
+                    self.av1an_config.set_thread_affinity,
+                    total_chunks as u32,
+                )?;
                 Ok(())
             });
 
@@ -478,23 +487,23 @@ impl Av1anEncode {
 
             debug!(
                 "encoding finished, concatenating with {concat}",
-                concat = self.args.concat
+                concat = self.av1an_config.concat
             );
 
-            match self.args.concat {
+            match self.av1an_config.concat {
                 ConcatMethod::Ivf => {
                     concat::ivf(
-                        &Path::new(&self.args.temp).join("encode"),
-                        self.args.output_file.as_ref(),
+                        &Path::new(&self.resume_options.temp).join("encode"),
+                        self.av1an_config.output_file.as_ref(),
                     )?;
                 },
                 ConcatMethod::MKVMerge => {
                     concat::mkvmerge(
-                        self.args.temp.as_ref(),
-                        self.args.output_file.as_ref(),
-                        self.args.encoder,
+                        self.resume_options.temp.as_ref(),
+                        self.av1an_config.output_file.as_ref(),
+                        self.encoder_options.encoder,
                         total_chunks,
-                        if self.args.ignore_frame_mismatch {
+                        if self.av1an_config.ignore_frame_mismatch {
                             info!(
                                 "`--ignore-frame-mismatch` set. Don't force output FPS, as an FPS \
                                  changing filter might have been applied."
@@ -510,54 +519,61 @@ impl Av1anEncode {
                     )?;
                 },
                 ConcatMethod::FFmpeg => {
-                    concat::ffmpeg(self.args.temp.as_ref(), self.args.output_file.as_ref())?;
+                    concat::ffmpeg(
+                        self.resume_options.temp.as_ref(),
+                        self.av1an_config.output_file.as_ref(),
+                    )?;
                 },
             }
 
-            if self.args.vmaf {
-                let vmaf_res = if self.args.target_quality.vmaf_res == "inputres" {
-                    let inputres = self.args.input.clip_info()?.resolution;
+            if self.target_quality_options.vmaf {
+                let vmaf_res = if self.target_quality_options.target_quality.vmaf_res == "inputres"
+                {
+                    let inputres = self.av1an_config.input.get_clip_info()?.resolution;
                     format!("{width}x{height}", width = inputres.0, height = inputres.1)
                 } else {
-                    self.args.target_quality.vmaf_res.clone()
+                    self.target_quality_options.target_quality.vmaf_res.clone()
                 };
 
-                let vmaf_model =
-                    self.args.vmaf_path.as_deref().or(self.args.target_quality.model.as_deref());
+                let vmaf_model = self.target_quality_options.vmaf_path.as_deref().or(self
+                    .target_quality_options
+                    .target_quality
+                    .model
+                    .as_deref());
                 let vmaf_scaler = "bicubic";
-                let vmaf_filter = self.args.vmaf_filter.as_deref().or(self
-                    .args
+                let vmaf_filter = self.target_quality_options.vmaf_filter.as_deref().or(self
+                    .target_quality_options
                     .target_quality
                     .vmaf_filter
                     .as_deref());
 
-                if self.args.vmaf {
+                if self.target_quality_options.vmaf {
                     let vmaf_threads = available_parallelism().map_or(1, std::num::NonZero::get);
 
                     if let Err(e) = vmaf::plot(
-                        self.args.output_file.as_ref(),
-                        &self.args.input,
+                        self.av1an_config.output_file.as_ref(),
+                        &self.av1an_config.input,
                         vmaf_model,
                         &vmaf_res,
                         vmaf_scaler,
                         1,
                         vmaf_filter,
                         vmaf_threads,
-                        &self.args.target_quality.probing_vmaf_features,
+                        &self.target_quality_options.target_quality.probing_vmaf_features,
                     ) {
                         error!("VMAF calculation failed with error: {e}");
                     }
                 }
             }
 
-            if !Path::new(&self.args.output_file).exists() {
+            if !Path::new(&self.av1an_config.output_file).exists() {
                 warn!(
                     "Concatenation failed for unknown reasons! Temp folder will not be deleted: \
                      {temp}",
-                    temp = self.args.temp
+                    temp = &self.resume_options.temp.
                 );
-            } else if !self.args.keep {
-                if let Err(e) = fs::remove_dir_all(&self.args.temp) {
+            } else if !self.resume_options.keep {
+                if let Err(e) = fs::remove_dir_all(&self.resume_options.temp) {
                     warn!("Failed to delete temp directory: {e}");
                 }
             }
@@ -618,7 +634,7 @@ impl Av1anEncode {
     fn spawn_source_and_ffmpeg(
         &self,
         chunk: &Chunk,
-    ) -> Result<(Stdio, ChildStderr, Option<ChildStderr>), (anyhow::Error, u64)> {
+    ) -> Result<(Stdio, ChildStderr, Option<ChildStderr>), (Error, u64)> {
         // Spawn source process
         let mut source_pipe = if let [source, args @ ..] = &*chunk.source_cmd {
             let mut command = Command::new(source);
@@ -642,8 +658,8 @@ impl Av1anEncode {
         // Inner closure to create ffmpeg pipe if needed
         let create_ffmpeg_pipe = |pipe_from: Stdio, source_pipe_stderr: ChildStderr| {
             let ffmpeg_pipe = compose_ffmpeg_pipe(
-                self.args.ffmpeg_filter_args.as_slice(),
-                self.args.output_pix_format.format,
+                self.encoder_options.ffmpeg_filter_args.as_slice(),
+                self.encoder_options.output_pix_format.format,
             );
 
             let mut ffmpeg_pipe = if let [ffmpeg, args @ ..] = &*ffmpeg_pipe {
@@ -670,10 +686,10 @@ impl Av1anEncode {
         };
 
         // Decide if ffmpeg pipe is needed or not
-        if self.args.ffmpeg_filter_args.is_empty() {
-            match &self.args.input_pix_format {
+        if self.encoder_options.ffmpeg_filter_args.is_empty() {
+            match &self.encoder_options.input_pix_format {
                 InputPixelFormat::FFmpeg { format } => {
-                    if self.args.output_pix_format.format == *format {
+                    if self.encoder_options.output_pix_format.format == *format {
                         Ok((source_pipe_stdout, source_pipe_stderr, None))
                     } else {
                         create_ffmpeg_pipe(source_pipe_stdout, source_pipe_stderr)
@@ -716,7 +732,7 @@ impl Av1anEncode {
         current_pass: u8,
         worker_id: usize,
         verbosity: Verbosity,
-    ) -> Result<(Output, String, u64), (anyhow::Error, u64)> {
+    ) -> Result<(Output, String, u64), (Error, u64)> {
         let mut enc_pipe = Command::new(encoder)
             .args(args)
             .stdin(stdin)
@@ -771,7 +787,7 @@ impl Av1anEncode {
         current_pass: u8,
         worker_id: usize,
         enc_cmd: &[String],
-    ) -> Result<(String, Option<String>, Output, String, u64), (anyhow::Error, u64)> {
+    ) -> Result<(String, Option<String>, Output, String, u64), (Error, u64)> {
         thread::scope(|scope| {
             let (y4m_pipe, source_pipe_stderr, mut ffmpeg_pipe_stderr) =
                 self.spawn_source_and_ffmpeg(chunk)?;
@@ -829,7 +845,7 @@ impl Av1anEncode {
         current_pass: u8,
         worker_id: usize,
         padding: usize,
-    ) -> Result<(), (anyhow::Error, u64)> {
+    ) -> Result<(), (Error, u64)> {
         update_mp_chunk(worker_id, chunk.index, padding);
 
         let fpf_file = Path::new(&chunk.temp)
@@ -863,7 +879,7 @@ impl Av1anEncode {
         source_pipe_stderr: String,
         ffmpeg_pipe_stderr: Option<String>,
         frame: u64,
-    ) -> Result<(), (anyhow::Error, u64)> {
+    ) -> Result<(), (Error, u64)> {
         if !enc_output.status.success() {
             return Err((
                 EncoderCrash {

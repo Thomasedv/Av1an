@@ -529,7 +529,7 @@ pub enum TargetMetric {
 /// Determine the optimal number of workers for an encoder
 #[inline]
 pub fn determine_workers(
-    input: Input,
+    input: &Input,
     tiles: (u32, u32),
     chunk_method: ChunkMethod,
     encoder: Encoder,
@@ -582,7 +582,7 @@ pub fn determine_workers(
     // use total instead of available, because av1an does not resize worker pool
     let ram_gb = system.total_memory() as f64 / 1e9;
 
-    Ok(std::cmp::max(
+    Ok(max(
         std::cmp::min(
             cpu / cpu_threads,
             (ram_gb / (megapixels * (enc_ram + cm_ram) * pix_mult)).round() as u64,
