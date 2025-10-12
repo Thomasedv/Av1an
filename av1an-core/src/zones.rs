@@ -2,7 +2,7 @@ use std::fs;
 
 use anyhow::bail;
 
-use crate::{scenes::Scene, Av1anJob, EncodeArgs};
+use crate::{scenes::Scene, Av1anJob};
 
 pub(crate) fn parse_zones(args: &Av1anJob, frames: usize) -> anyhow::Result<Vec<Scene>> {
     let mut zones = Vec::new();

@@ -1,10 +1,8 @@
 use std::str::FromStr;
 
 use crate::{
-    context::Av1anJob,
-    encoder::Encoder,
-    scenes::{Scene, SceneFactory},
-    InterpolationMethod, ProbingStatistic, TargetMetric, TargetQuality,
+    context::Av1anJob, encoder::Encoder, scenes::Scene, InterpolationMethod, ProbingStatistic,
+    TargetMetric, TargetQuality,
 };
 
 fn get_test_job() -> Av1anJob {

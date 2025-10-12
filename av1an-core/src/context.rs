@@ -770,6 +770,7 @@ impl Av1anJob {
         let mut frame = 0;
         let mut reader =
             BufReader::new(enc_pipe.stderr.take().expect("enc_pipe should have stderr"));
+
         let mut buf = Vec::with_capacity(128);
         let mut enc_stderr = String::with_capacity(128);
 
@@ -892,6 +893,8 @@ impl Av1anJob {
             source_pipe_stderr,
             ffmpeg_pipe_stderr,
             frame,
+            worker_id,
+            self.encoder_options.verbosity,
         )?;
 
         Ok(())
@@ -905,6 +908,8 @@ impl Av1anJob {
         source_pipe_stderr: String,
         ffmpeg_pipe_stderr: Option<String>,
         frame: u64,
+        worker_id: usize,
+        verbosity: Verbosity,
     ) -> Result<(), (Error, u64)> {
         if !enc_output.status.success() {
             return Err((
@@ -918,6 +923,15 @@ impl Av1anJob {
                 .into(),
                 frame,
             ));
+        }
+        // Set progress to completed, pass 1 progress tends to "end" early otherwise
+        if verbosity == Verbosity::Verbose {
+            update_mp_msg_encoder(
+                worker_id,
+                current_pass,
+                chunk.frames() as u64,
+                chunk.frames(),
+            );
         }
 
         if current_pass == chunk.passes {
