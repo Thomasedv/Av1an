@@ -25,13 +25,14 @@ use nom::{
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
+use crate::context::{EncoderOption, JobOption};
 use crate::{
     get_done,
     parse::valid_params,
     scene_detect::av_scenechange_detect,
     settings::{invalid_params, suggest_fix},
     split::extra_splits,
-    EncodeArgs, Encoder, SplitMethod, TargetMetric, TargetQuality,
+    Av1anJob, Encoder, SplitMethod, TargetMetric, TargetQuality,
 };
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -57,7 +58,7 @@ pub struct ZoneOptions {
 }
 
 impl Scene {
-    pub fn parse_from_zone(input: &str, args: &EncodeArgs, frames: usize) -> Result<Self> {
+    pub fn parse_from_zone(input: &str, av1an_job: &Av1anJob, frames: usize) -> Result<Self> {
         let (_, (start, _, end, _, encoder, reset, zone_args)): (
             _,
             (usize, _, usize, _, Encoder, bool, &str),
@@ -100,18 +101,21 @@ impl Scene {
         if start >= frames || end > frames {
             bail!("Start and end frames must not be past the end of the video");
         }
-        if encoder.format() != args.encoder.format() {
+        if encoder.format() != av1an_job.encoder_options.encoder.format() {
             bail!(
                 "Zone specifies using {}, but this cannot be used in the same file as {}",
                 encoder,
-                args.encoder,
+                av1an_job.encoder_options.encoder,
             );
         }
-        if encoder != args.encoder {
-            if encoder.get_format_bit_depth(args.output_pix_format.format).is_err() {
+        if encoder != av1an_job.encoder_options.encoder {
+            if encoder
+                .get_format_bit_depth(av1an_job.encoder_options.output_pix_format.format)
+                .is_err()
+            {
                 bail!(
                     "Output pixel format {:?} is not supported by {} (used in zones file)",
-                    args.output_pix_format.format,
+                    av1an_job.encoder_options.output_pix_format.format,
                     encoder
                 );
             }
@@ -127,30 +131,38 @@ impl Scene {
         let mut video_params = if reset {
             Vec::new()
         } else {
-            args.video_params.clone()
+            av1an_job.encoder_options.video_params.clone()
         };
         let mut passes = if reset {
             encoder.get_default_pass()
         } else {
-            args.passes
+            av1an_job.encoder_options.passes
         };
-        let mut photon_noise = if reset { None } else { args.photon_noise };
+        let mut photon_noise = if reset {
+            None
+        } else {
+            av1an_job.noise_options.photon_noise
+        };
         let mut photon_noise_height = if reset {
             None
         } else {
-            args.photon_noise_size.1
+            av1an_job.noise_options.photon_noise_size.1
         };
         let mut photon_noise_width = if reset {
             None
         } else {
-            args.photon_noise_size.0
+            av1an_job.noise_options.photon_noise_size.0
         };
-        let mut chroma_noise = if reset { false } else { args.chroma_noise };
-        let mut extra_splits_len = args.extra_splits_len;
-        let mut min_scene_len = args.min_scene_len;
+        let mut chroma_noise = if reset {
+            false
+        } else {
+            av1an_job.noise_options.chroma_noise
+        };
+        let mut extra_splits_len = av1an_job.job_options.extra_splits_len;
+        let mut min_scene_len = av1an_job.job_options.min_scene_len;
 
         // Target Quality options
-        let mut target_quality = args.target_quality.clone();
+        let mut target_quality = av1an_job.target_quality_options.target_quality.clone();
 
         // Parse overrides
         let zone_args: (&str, Vec<(&str, Option<&str>)>) =
@@ -262,7 +274,7 @@ impl Scene {
                 .collect::<Vec<String>>()
         };
 
-        if !args.force {
+        if !av1an_job.resume_options.force {
             let help_text = {
                 let [cmd, arg] = encoder.help_command();
                 String::from_utf8_lossy(&Command::new(cmd).arg(arg).output()?.stdout).to_string()
@@ -368,8 +380,8 @@ impl SceneFactory {
     }
 
     /// This loads a list of scenes from a JSON file and returns a factory with
-    /// the scenes data.
-    pub fn from_scenes_file<P: AsRef<Path>>(scene_path: &P) -> anyhow::Result<Self> {
+    /// the scene's data.
+    pub fn from_scenes_file<P: AsRef<Path>>(scene_path: &P) -> Result<Self> {
         let file = File::open(scene_path)?;
         let mut data: ScenesData = serde_json::from_reader(file).with_context(|| {
             format!(
@@ -393,7 +405,7 @@ impl SceneFactory {
 
     /// Retrieve the pre-extra-split scenes data
     #[expect(dead_code)]
-    pub fn get_scenecuts(&self) -> anyhow::Result<&[Scene]> {
+    pub fn get_scenecuts(&self) -> Result<&[Scene]> {
         if self.data.scenes.is_none() {
             bail!("compute_scenes must be called first");
         }
@@ -402,7 +414,7 @@ impl SceneFactory {
     }
 
     /// Retrieve the post-extra-split scenes data
-    pub fn get_split_scenes(&self) -> anyhow::Result<&[Scene]> {
+    pub fn get_split_scenes(&self) -> Result<&[Scene]> {
         if self.data.split_scenes.is_none() {
             bail!("compute_scenes must be called first");
         }
@@ -415,7 +427,7 @@ impl SceneFactory {
     }
 
     /// Write the scenes data to the specified file as JSON
-    pub fn write_scenes_to_file<P: AsRef<Path>>(&self, scene_path: P) -> anyhow::Result<()> {
+    pub fn write_scenes_to_file<P: AsRef<Path>>(&self, scene_path: P) -> Result<()> {
         if self.data.scenes.is_none() {
             bail!("compute_scenes must be called first");
         }
@@ -431,23 +443,28 @@ impl SceneFactory {
     /// This runs scene detection and populates a list of scenes into the
     /// factory. This function must be called before getting the list of scenes
     /// or writing to the file.
-    pub fn compute_scenes(&mut self, args: &EncodeArgs, zones: &[Scene]) -> anyhow::Result<()> {
+    pub fn compute_scenes(
+        &mut self,
+        job_options: &JobOption,
+        encoding_options: &EncoderOption,
+        zones: &[Scene],
+    ) -> Result<()> {
         // We should only be calling this when scenes haven't been created yet
         debug_assert!(self.data.scenes.is_none());
 
-        let frames = args.input.get_clip_info()?.num_frames;
+        let frames = job_options.input.get_clip_info()?.num_frames;
 
-        let (mut scenes, frames, scores) = match args.split_method {
+        let (mut scenes, frames, scores) = match job_options.split_method {
             SplitMethod::AvScenechange => av_scenechange_detect(
-                args.proxy.as_ref().unwrap_or(&args.input),
-                args.encoder,
+                job_options.proxy_input.as_ref().unwrap_or(&job_options.input),
+                encoding_options.encoder,
                 frames,
-                args.min_scene_len,
-                args.verbosity,
-                args.scaler.as_str(),
-                args.sc_pix_format,
-                args.sc_method,
-                args.sc_downscale_height,
+                job_options.min_scene_len,
+                encoding_options.verbosity,
+                job_options.scaler.as_str(),
+                job_options.sc_pix_format,
+                job_options.sc_method,
+                job_options.sc_downscale_height,
                 zones,
             )?,
             SplitMethod::None => {
@@ -485,7 +502,7 @@ impl SceneFactory {
         get_done().frames.store(frames, atomic::Ordering::SeqCst);
 
         // Add forced keyframes
-        for kf in &args.force_keyframes {
+        for kf in &job_options.force_keyframes {
             if let Some((scene_pos, s)) =
                 scenes.iter_mut().find_position(|s| (s.start_frame..s.end_frame).contains(kf))
             {
@@ -518,7 +535,7 @@ impl SceneFactory {
         let scenes_before = scenes.len();
         self.data.scenes = Some(scenes);
 
-        if let Some(split_len @ 1..) = args.extra_splits_len {
+        if let Some(split_len @ 1..) = job_options.extra_splits_len {
             self.data.split_scenes = Some(extra_splits(
                 self.data.scenes.as_deref().expect("scenes is set"),
                 split_len,

@@ -27,7 +27,7 @@ use tracing::info;
 
 pub use crate::{
     concat::ConcatMethod,
-    context::Av1anEncode,
+    context::Av1anJob,
     encoder::Encoder,
     settings::{EncodeArgs, InputPixelFormat, PixelFormat},
     target_quality::{InterpolationMethod, TargetQuality},
@@ -62,6 +62,7 @@ mod split;
 mod target_quality;
 mod util;
 pub mod vapoursynth;
+
 mod zones;
 
 static CLIP_INFO_CACHE: Lazy<Mutex<HashMap<CacheKey, ClipInfo>>> =

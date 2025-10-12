@@ -20,7 +20,7 @@ use tracing::{debug, error, warn};
 
 use crate::progress_bar::suspend_progress_and_do;
 use crate::{
-    context::Av1anEncode,
+    context::Av1anJob,
     finish_progress_bar, get_done,
     progress_bar::{
         dec_bar, inc_mp_bar, update_mp_chunk, update_mp_msg, update_progress_bar_estimates,
@@ -32,7 +32,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Broker<'a> {
     pub chunk_queue: Vec<Chunk>,
-    pub project: &'a Av1anEncode,
+    pub project: &'a Av1anJob,
 }
 
 #[derive(Clone)]
@@ -135,7 +135,7 @@ impl Broker<'_> {
                 })
                 .expect("should set ctrlc handler");
 
-                let consumers: Vec<_> = (0..self.project.args.workers)
+                let consumers: Vec<_> = (0..self.project.job_options.workers)
                     .map(|idx| (receiver.clone(), &self, idx, Arc::clone(&terminations_requested)))
                     .map(|(rx, queue, worker_id, terminations_requested)| {
                         let tx = tx.clone();
@@ -220,11 +220,11 @@ impl Broker<'_> {
                     max = max
                 ),
             );
-            for r#try in 1..=self.project.args.max_tries {
+            for r#try in 1..=self.project.job_options.max_tries {
                 let res = chunk.target_quality.per_shot_target_quality(
                     chunk,
                     Some(worker_id),
-                    self.project.args.vapoursynth_plugins,
+                    self.project.vapoursynth_options.vapoursynth_plugins,
                 );
                 match res {
                     Ok(cq) => {
@@ -232,7 +232,7 @@ impl Broker<'_> {
                         break;
                     },
                     Err(e) => {
-                        if r#try >= self.project.args.max_tries {
+                        if r#try >= self.project.job_options.max_tries {
                             bail!(
                                 "Target Quality failed after {} tries on chunk {}:\n{}",
                                 r#try,
@@ -247,21 +247,23 @@ impl Broker<'_> {
             if chunk.target_quality.params_copied
                 && chunk.tq_cq.is_some()
                 && chunk.target_quality.probing_rate == 1
-                && self.project.args.ffmpeg_filter_args.is_empty()
+                && self.project.encoder_options.ffmpeg_filter_args.is_empty()
                 && chunk.proxy.is_none()
             {
                 let optimal_q = chunk.tq_cq.expect("tq_cq is some");
-                let extension = match self.project.args.encoder {
+                let extension = match self.project.encoder_options.encoder {
                     crate::encoder::Encoder::x264 => "264",
                     crate::encoder::Encoder::x265 => "hevc",
                     _ => "ivf",
                 };
-                let probe_file = std::path::Path::new(&self.project.args.temp).join("split").join(
-                    format!("v_{index:05}_{optimal_q}.{extension}", index = chunk.index),
-                );
+                let probe_file =
+                    std::path::Path::new(&self.project.resume_options.temp).join("split").join(
+                        format!("v_{index:05}_{optimal_q}.{extension}", index = chunk.index),
+                    );
 
                 if probe_file.exists() {
-                    let encode_dir = std::path::Path::new(&self.project.args.temp).join("encode");
+                    let encode_dir =
+                        std::path::Path::new(&self.project.resume_options.temp).join("encode");
                     std::fs::create_dir_all(&encode_dir)?;
                     let output_file =
                         encode_dir.join(format!("{index:05}.{extension}", index = chunk.index));
@@ -269,7 +271,8 @@ impl Broker<'_> {
 
                     inc_mp_bar(chunk.frames() as u64);
 
-                    let progress_file = Path::new(&self.project.args.temp).join("done.json");
+                    let progress_file =
+                        Path::new(&self.project.resume_options.temp).join("done.json");
                     get_done().done.insert(
                         chunk.name(),
                         DoneChunk {
@@ -284,7 +287,7 @@ impl Broker<'_> {
                     update_progress_bar_estimates(
                         chunk.frame_rate,
                         self.project.frames,
-                        self.project.args.verbosity,
+                        self.project.encoder_options.verbosity,
                         (get_done().done.len() as u32, total_chunks),
                     );
 
@@ -309,7 +312,7 @@ impl Broker<'_> {
 
         let passes = chunk.passes;
         for current_pass in 1..=passes {
-            for r#try in 1..=self.project.args.max_tries {
+            for r#try in 1..=self.project.job_options.max_tries {
                 let res = self.project.encode_chunk(chunk, current_pass, worker_id, padding);
                 if let Err((e, frames)) = res {
                     dec_bar(frames);
@@ -326,12 +329,12 @@ impl Broker<'_> {
                         );
                     }
 
-                    if r#try == self.project.args.max_tries {
+                    if r#try == self.project.job_options.max_tries {
                         bail!(
                             "[chunk {index}] encoder failed {tries} times, shutting down worker: \
                              {e}",
                             index = chunk.index,
-                            tries = self.project.args.max_tries
+                            tries = self.project.job_options.max_tries
                         );
                     }
                     // avoids double-print of the error message as both a WARN and ERROR,
@@ -349,7 +352,7 @@ impl Broker<'_> {
         let enc_time = st_time.elapsed();
         let fps = chunk.frames() as f64 / enc_time.as_secs_f64();
 
-        let progress_file = Path::new(&self.project.args.temp).join("done.json");
+        let progress_file = Path::new(&self.project.resume_options.temp).join("done.json");
         get_done().done.insert(
             chunk.name(),
             DoneChunk {
@@ -367,7 +370,7 @@ impl Broker<'_> {
         update_progress_bar_estimates(
             chunk.frame_rate,
             self.project.frames,
-            self.project.args.verbosity,
+            self.project.encoder_options.verbosity,
             (get_done().done.len() as u32, total_chunks),
         );
 

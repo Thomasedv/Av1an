@@ -12,7 +12,7 @@ use av1an_core::{
     ffmpeg::FFPixelFormat,
     hash_path, into_vec, read_in_dir,
     vapoursynth::{get_vapoursynth_plugins, VSZipVersion},
-    Av1anEncode, ChunkMethod, ChunkOrdering, ConcatMethod, EncodeArgs, Encoder, Input,
+    Av1anJob, ChunkMethod, ChunkOrdering, ConcatMethod, EncodeArgs, Encoder, Input,
     InputPixelFormat, InterpolationMethod, PixelFormat, ScenecutMethod, SplitMethod, TargetMetric,
     TargetQuality, Verbosity, VmafFeature,
 };
@@ -1208,7 +1208,7 @@ pub fn run() -> anyhow::Result<()> {
 
     let args = parse_cli(cli_options)?;
     for arg in args {
-        Av1anEncode::new(arg)?.encode_file()?;
+        Av1anJob::new(arg, None)?.encode_file()?;
     }
 
     Ok(())

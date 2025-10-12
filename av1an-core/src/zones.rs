@@ -2,14 +2,14 @@ use std::fs;
 
 use anyhow::bail;
 
-use crate::{scenes::Scene, EncodeArgs};
+use crate::{scenes::Scene, Av1anJob, EncodeArgs};
 
-pub(crate) fn parse_zones(args: &EncodeArgs, frames: usize) -> anyhow::Result<Vec<Scene>> {
+pub(crate) fn parse_zones(args: &Av1anJob, frames: usize) -> anyhow::Result<Vec<Scene>> {
     let mut zones = Vec::new();
-    if let Some(ref zones_file) = args.zones {
+    if let Some(ref zones_file) = args.job_options.zones {
         let input = fs::read_to_string(zones_file)?;
         for zone_line in input.lines().map(str::trim).filter(|line| !line.is_empty()) {
-            zones.push(Scene::parse_from_zone(zone_line, args, frames)?);
+            zones.push(Scene::parse_from_zone(zone_line, &args, frames)?);
         }
         zones.sort_unstable_by_key(|zone| zone.start_frame);
         for i in 0..zones.len() - 1 {
